@@ -1,6 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+
+// 測站型別
+type Station = {
+  station_name: string
+  latitude: number
+  longitude: number
+}
 
 export default function PhotoUploadPage() {
   const [file, setFile] = useState<File | null>(null)
@@ -10,14 +17,29 @@ export default function PhotoUploadPage() {
     longitude: '',
     nearest_station: '',
   })
+  const [stations, setStations] = useState<Station[]>([])
   const [locating, setLocating] = useState(false)
+  const [manualMode, setManualMode] = useState(false)
+
+  useEffect(() => {
+    const now = new Date()
+    const local = now.toISOString().slice(0, 16)
+    setForm(f => ({ ...f, taken_at: local }))
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/station-list')
+      .then(res => res.json())
+      .then(data => setStations(data))
+      .catch(err => console.error('載入測站清單失敗：', err))
+  }, [])
 
   const handleUpload = async () => {
     if (!file) return alert('請選擇圖片')
 
     const formData = new FormData()
-    formData.append('file', file)
     Object.entries(form).forEach(([key, val]) => formData.append(key, val))
+    formData.append('file', file)
 
     const res = await fetch('/api/upload-photo', {
       method: 'POST',
@@ -34,14 +56,53 @@ export default function PhotoUploadPage() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords
-        setForm(f => ({ ...f, latitude: latitude.toString(), longitude: longitude.toString() }))
+
+        // ⚠️ 若不在雙北區域，強制進入手動選擇
+        if (!isInTaipeiRegion(latitude, longitude)) {
+          alert('📍 定位點不在雙北地區，請手動選擇測站')
+          setManualMode(true)
+          setLocating(false)
+          return
+        }
+
+        const nearest = findNearestStation(latitude, longitude)
+
+        setForm(f => ({
+          ...f,
+          latitude: latitude.toString(),
+          longitude: longitude.toString(),
+          nearest_station: nearest,
+        }))
+        setManualMode(false)
         setLocating(false)
       },
       (err) => {
         alert(`❌ 取得定位失敗：${err.message}`)
+        setManualMode(true)
         setLocating(false)
       }
     )
+  }
+
+  const findNearestStation = (lat: number, lng: number): string => {
+    if (stations.length === 0) return ''
+
+    let nearest = stations[0]
+    let minDist = Number.MAX_VALUE
+
+    for (const station of stations) {
+      const d = Math.hypot(lat - station.latitude, lng - station.longitude)
+      if (d < minDist) {
+        minDist = d
+        nearest = station
+      }
+    }
+
+    return nearest.station_name
+  }
+
+  const isInTaipeiRegion = (lat: number, lng: number): boolean => {
+    return lat >= 24.8 && lat <= 25.3 && lng >= 121.3 && lng <= 122.0
   }
 
   return (
@@ -60,7 +121,7 @@ export default function PhotoUploadPage() {
         </div>
 
         <div>
-          <label className="block font-medium mb-1">拍攝時間（ISO 格式）</label>
+          <label className="block font-medium mb-1">拍攝時間</label>
           <input
             type="datetime-local"
             value={form.taken_at}
@@ -95,17 +156,30 @@ export default function PhotoUploadPage() {
           disabled={locating}
           className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 rounded"
         >
-          {locating ? '取得定位中...' : '📍 取得目前位置'}
+          {locating ? '取得定位中...' : '📍 自動取得定位與測站'}
         </button>
 
         <div>
           <label className="block font-medium mb-1">鄰近測站</label>
-          <input
-            placeholder="如：臺北"
-            value={form.nearest_station}
-            onChange={(e) => setForm(f => ({ ...f, nearest_station: e.target.value }))}
-            className="w-full border rounded px-3 py-2"
-          />
+          {manualMode ? (
+            <select
+              value={form.nearest_station}
+              onChange={(e) => setForm(f => ({ ...f, nearest_station: e.target.value }))}
+              className="w-full border rounded px-3 py-2"
+            >
+              <option value="">請選擇測站</option>
+              {stations.map(s => (
+                <option key={s.station_name} value={s.station_name}>{s.station_name}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              placeholder="如：臺北"
+              value={form.nearest_station}
+              onChange={(e) => setForm(f => ({ ...f, nearest_station: e.target.value }))}
+              className="w-full border rounded px-3 py-2"
+            />
+          )}
         </div>
 
         <button

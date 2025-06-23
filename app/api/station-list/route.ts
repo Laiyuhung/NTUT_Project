@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabaseClient'
 export async function GET() {
   const { data, error } = await supabase
     .from('station_code_map')
-    .select('station_name')
+    .select('station_name, latitude, longitude')
     .order('station_name', { ascending: true })
 
   if (error) {
