@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import clsx from 'clsx'
 
 // 測站型別
 type Station = {
@@ -20,7 +19,8 @@ export default function PhotoUploadPage() {
   })
   const [stations, setStations] = useState<Station[]>([])
   const [locating, setLocating] = useState(false)
-  const [tab, setTab] = useState<'auto' | 'manual'>('auto')
+  const [manualMode, setManualMode] = useState(false)
+  const [activeTab, setActiveTab] = useState<'auto' | 'manual'>('auto')
 
   useEffect(() => {
     const now = new Date()
@@ -59,8 +59,9 @@ export default function PhotoUploadPage() {
         const { latitude, longitude } = pos.coords
 
         if (!isInTaipeiRegion(latitude, longitude)) {
-          alert('📍 定位點不在雙北地區，自動模式已停用')
-          setTab('manual')
+          alert('📍 定位點不在雙北地區，請手動選擇測站')
+          setManualMode(true)
+          setActiveTab('manual')
           setLocating(false)
           return
         }
@@ -73,12 +74,13 @@ export default function PhotoUploadPage() {
           longitude: longitude.toString(),
           nearest_station: nearest,
         }))
-
+        setManualMode(false)
         setLocating(false)
       },
       (err) => {
         alert(`❌ 取得定位失敗：${err.message}`)
-        setTab('manual')
+        setManualMode(true)
+        setActiveTab('manual')
         setLocating(false)
       }
     )
@@ -88,7 +90,6 @@ export default function PhotoUploadPage() {
     if (stations.length === 0) return ''
     let nearest = stations[0]
     let minDist = Number.MAX_VALUE
-
     for (const station of stations) {
       const d = Math.hypot(lat - station.latitude, lng - station.longitude)
       if (d < minDist) {
@@ -96,7 +97,6 @@ export default function PhotoUploadPage() {
         nearest = station
       }
     }
-
     return nearest.station_name
   }
 
@@ -106,44 +106,54 @@ export default function PhotoUploadPage() {
 
   return (
     <main className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
-      <div className="w-full max-w-md bg-white rounded-xl shadow-md p-6 space-y-4">
+      <div className="w-full max-w-2xl bg-white rounded-xl shadow-md p-6 space-y-4">
         <h2 className="text-2xl font-bold text-center">照片上傳</h2>
 
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setTab('auto')}
-            className={clsx(
-              'flex-1 py-2 rounded text-white font-semibold',
-              tab === 'auto' ? 'bg-blue-600' : 'bg-gray-400'
-            )}
-          >
-            自動偵測
-          </button>
-          <button
-            onClick={() => setTab('manual')}
-            className={clsx(
-              'flex-1 py-2 rounded text-white font-semibold',
-              tab === 'manual' ? 'bg-blue-600' : 'bg-gray-400'
-            )}
-          >
-            手動選擇
-          </button>
+        <div className="flex border-b mb-4">
+          <button onClick={() => setActiveTab('auto')} className={`flex-1 py-2 font-medium ${activeTab === 'auto' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}>自動取得</button>
+          <button onClick={() => setActiveTab('manual')} className={`flex-1 py-2 font-medium ${activeTab === 'manual' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}>手動登錄</button>
         </div>
 
-        {tab === 'auto' && (
+        {activeTab === 'auto' && (
           <>
             <button
               onClick={handleGetLocation}
               disabled={locating}
               className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 rounded"
             >
-              {locating ? '定位中...' : '📍 自動取得定位與測站'}
+              {locating ? '取得定位中...' : '📍 自動取得定位與測站'}
             </button>
+            <div className="overflow-x-auto">
+              <div className="min-w-[600px] flex space-x-2">
+                <div className="flex-1 min-w-[180px]">
+                  <label className="block font-medium mb-1">緯度</label>
+                  <input
+                    value={form.latitude}
+                    onChange={(e) => setForm(f => ({ ...f, latitude: e.target.value }))}
+                    className="w-full border rounded px-3 py-2"
+                  />
+                </div>
+                <div className="flex-1 min-w-[180px]">
+                  <label className="block font-medium mb-1">經度</label>
+                  <input
+                    value={form.longitude}
+                    onChange={(e) => setForm(f => ({ ...f, longitude: e.target.value }))}
+                    className="w-full border rounded px-3 py-2"
+                  />
+                </div>
+                <div className="flex-1 min-w-[180px]">
+                  <label className="block font-medium mb-1">鄰近測站</label>
+                  <div className="px-3 py-2 border rounded bg-gray-100 text-gray-800">
+                    {form.nearest_station || '（尚未定位）'}
+                  </div>
+                </div>
+              </div>
+            </div>
           </>
         )}
 
-        {tab === 'manual' && (
-          <>
+        {activeTab === 'manual' && (
+          <div>
             <label className="block font-medium mb-1">選擇測站</label>
             <select
               value={form.nearest_station}
@@ -155,41 +165,32 @@ export default function PhotoUploadPage() {
                 <option key={s.station_name} value={s.station_name}>{s.station_name}</option>
               ))}
             </select>
-          </>
+          </div>
         )}
 
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          className="w-full border rounded px-3 py-2"
-        />
-
-        <input
-          type="datetime-local"
-          value={form.taken_at}
-          onChange={(e) => setForm(f => ({ ...f, taken_at: e.target.value }))}
-          className="w-full border rounded px-3 py-2"
-        />
-
-        <div className="flex space-x-2">
+        <div>
+          <label className="block font-medium mb-1">拍攝時間</label>
           <input
-            placeholder="緯度"
-            value={form.latitude}
-            onChange={(e) => setForm(f => ({ ...f, latitude: e.target.value }))}
-            className="flex-1 border rounded px-3 py-2"
+            type="datetime-local"
+            value={form.taken_at}
+            onChange={(e) => setForm(f => ({ ...f, taken_at: e.target.value }))}
+            className="w-full border rounded px-3 py-2"
           />
+        </div>
+
+        <div>
+          <label className="block font-medium mb-1">選擇照片</label>
           <input
-            placeholder="經度"
-            value={form.longitude}
-            onChange={(e) => setForm(f => ({ ...f, longitude: e.target.value }))}
-            className="flex-1 border rounded px-3 py-2"
+            type="file"
+            accept="image/*"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            className="w-full border rounded px-3 py-2"
           />
         </div>
 
         <button
           onClick={handleUpload}
-          className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded"
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded"
         >
           上傳
         </button>
