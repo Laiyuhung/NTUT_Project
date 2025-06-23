@@ -23,7 +23,9 @@ export default function PhotoUploadPage() {
 
   useEffect(() => {
     const now = new Date()
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset() + 480) // +8 小時
     const local = now.toISOString().slice(0, 16)
+
     setForm(f => ({ ...f, taken_at: local }))
   }, [])
 
