@@ -1,13 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function CsvUploadPage() {
   const [file, setFile] = useState<File | null>(null)
+  const [stations, setStations] = useState<string[]>([])
   const [form, setForm] = useState({
     station_name: '',
     upload_date: '',
   })
+
+  // 🟦 取得站名列表
+  useEffect(() => {
+    fetch('/api/station-list')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setStations(data.map((s) => s.station_name))
+        }
+      })
+  }, [])
 
   const handleUpload = async () => {
     if (!file) return alert('請選擇 CSV 檔案')
@@ -44,13 +56,16 @@ export default function CsvUploadPage() {
 
         <div>
           <label className="block font-medium mb-1">測站名稱</label>
-          <input
-            type="text"
-            placeholder="如：Taipei_Main_Station"
+          <select
+            className="w-full border rounded px-3 py-2"
             value={form.station_name}
             onChange={(e) => setForm(f => ({ ...f, station_name: e.target.value }))}
-            className="w-full border rounded px-3 py-2"
-          />
+          >
+            <option value="">請選擇測站</option>
+            {stations.map(name => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
         </div>
 
         <div>
