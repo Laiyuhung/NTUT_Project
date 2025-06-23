@@ -22,11 +22,10 @@ export default function PhotoUploadPage() {
   const [activeTab, setActiveTab] = useState<'auto' | 'manual'>('auto')
 
   useEffect(() => {
-    const now = new Date()
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset() + 480) // +8 小時
-    const local = now.toISOString().slice(0, 16)
-
-    setForm(f => ({ ...f, taken_at: local }))
+    const utc = new Date()
+    utc.setHours(utc.getHours() + 8) // 加上台灣時區偏移
+    const taipeiTime = utc.toISOString().slice(0, 16)
+    setForm(f => ({ ...f, taken_at: taipeiTime }))
   }, [])
 
   useEffect(() => {
