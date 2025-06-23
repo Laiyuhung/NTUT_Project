@@ -19,7 +19,6 @@ export default function PhotoUploadPage() {
   })
   const [stations, setStations] = useState<Station[]>([])
   const [locating, setLocating] = useState(false)
-  const [manualMode, setManualMode] = useState(false)
   const [activeTab, setActiveTab] = useState<'auto' | 'manual'>('auto')
 
   useEffect(() => {
@@ -60,7 +59,6 @@ export default function PhotoUploadPage() {
 
         if (!isInTaipeiRegion(latitude, longitude)) {
           alert('📍 定位點不在雙北地區，請手動選擇測站')
-          setManualMode(true)
           setActiveTab('manual')
           setLocating(false)
           return
@@ -74,12 +72,10 @@ export default function PhotoUploadPage() {
           longitude: longitude.toString(),
           nearest_station: nearest,
         }))
-        setManualMode(false)
         setLocating(false)
       },
       (err) => {
         alert(`❌ 取得定位失敗：${err.message}`)
-        setManualMode(true)
         setActiveTab('manual')
         setLocating(false)
       }
