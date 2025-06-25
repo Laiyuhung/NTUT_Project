@@ -62,14 +62,18 @@ export async function POST(request: NextRequest) {
           'Content-Disposition': `attachment; filename="${photo.filename}"`
         }
       })
-    }
-
-    // 多張照片的情況，創建 ZIP 檔案
+    }    // 多張照片的情況，創建 ZIP 檔案
     const zip = new JSZip()
     let successCount = 0
     let errorCount = 0
+    const processedPhotos: Array<{ 
+      photo: any, 
+      actualFilename: string 
+    }> = []
 
-    console.log('開始創建 ZIP 檔案...')    // 並行下載所有照片並加入 ZIP
+    console.log('開始創建 ZIP 檔案...')
+
+    // 並行下載所有照片並加入 ZIP
     const downloadPromises = photos.map(async (photo, index) => {
       try {
         console.log(`📸 下載照片 ${index + 1}/${photos.length}:`, photo.filename, 'file_url:', photo.file_url)
@@ -95,7 +99,8 @@ export async function POST(request: NextRequest) {
 
         const arrayBuffer = await fileData.arrayBuffer()
         console.log(`📦 ArrayBuffer 大小:`, arrayBuffer.byteLength)
-          // 確保檔名是唯一的，如果有重複則加上編號
+
+        // 確保檔名是唯一的，如果有重複則加上編號
         let filename = photo.filename || `photo_${photo.id}.jpg`
         
         // 檢查檔名是否包含非 ASCII 字符，如果有則進行處理
@@ -112,6 +117,13 @@ export async function POST(request: NextRequest) {
         }
 
         zip.file(filename, arrayBuffer)
+        
+        // 記錄處理過的照片和實際使用的檔名
+        processedPhotos.push({
+          photo,
+          actualFilename: filename
+        })
+        
         successCount++
         console.log(`✅ 成功加入 ZIP: ${filename}`)
 
@@ -131,9 +143,9 @@ export async function POST(request: NextRequest) {
     }    // 生成 ZIP 檔案
     console.log('🔄 開始生成 ZIP 檔案...')
     
-    // 創建照片基本資料的 CSV
-    const csvHeaders = 'ID,檔名,拍攝時間,緯度,經度,最近測站,上傳時間,檔案類型\n'
-    const csvRows = photos.map(photo => {
+    // 創建照片基本資料的 CSV，使用實際檔名
+    const csvHeaders = 'ID,ZIP內檔名,原始檔名,拍攝時間,緯度,經度,最近測站,上傳時間,檔案類型\n'
+    const csvRows = processedPhotos.map(({ photo, actualFilename }) => {
       // 處理可能包含逗號的欄位，用雙引號包圍
       const escapeCSV = (value: string | number | null | undefined) => {
         if (value === null || value === undefined) return ''
@@ -146,6 +158,7 @@ export async function POST(request: NextRequest) {
       
       return [
         escapeCSV(photo.id),
+        escapeCSV(actualFilename),
         escapeCSV(photo.filename),
         escapeCSV(photo.taken_at),
         escapeCSV(photo.latitude),
@@ -155,9 +168,8 @@ export async function POST(request: NextRequest) {
         escapeCSV(photo.file_type || 'image/jpeg')
       ].join(',')
     }).join('\n')
-    
-    const csvContent = csvHeaders + csvRows
-    console.log('📊 CSV 資料準備完成，包含', photos.length, '筆照片資料')
+      const csvContent = csvHeaders + csvRows
+    console.log('📊 CSV 資料準備完成，包含', processedPhotos.length, '筆照片資料')
     
     // 將 CSV 加入 ZIP
     zip.file('photos_metadata.csv', csvContent, { binary: false })
