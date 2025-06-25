@@ -10,7 +10,8 @@ interface RouteParams {
 export async function GET(
   request: NextRequest,
   { params }: RouteParams
-) {  try {
+) {
+  try {
     const { id } = await params
     const photoId = id
 
@@ -27,10 +28,10 @@ export async function GET(
 
     // 從 Supabase Storage 獲取檔案
     const { data: fileData, error: downloadError } = await supabase.storage
-      .from('photos') // 假設 bucket 名稱為 photos
-      .download(photo.file_path || photo.filename)
+      .from('uploads') // 照片存儲在 uploads bucket
+      .download(photo.file_url)
 
-    if (downloadError) {
+    if (downloadError || !fileData) {
       console.error('下載照片失敗：', downloadError)
       return NextResponse.json({ error: '下載照片失敗' }, { status: 500 })
     }
@@ -39,10 +40,20 @@ export async function GET(
     const arrayBuffer = await fileData.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
+    // 從 file_url 中提取原始檔案名稱
+    const originalFilename = photo.file_url?.split('/').pop() || 'photo.jpg'
+    // 移除 UUID 前綴，保留原始檔案名稱
+    const cleanFilename = originalFilename.includes('-') 
+      ? originalFilename.substring(originalFilename.indexOf('-') + 1) 
+      : originalFilename
+
+    // 根據檔案類型設置正確的 Content-Type
+    const contentType = photo.file_type || 'image/jpeg'
+
     return new NextResponse(buffer, {
       headers: {
-        'Content-Type': 'image/jpeg',
-        'Content-Disposition': `attachment; filename="${photo.filename}"`
+        'Content-Type': contentType,
+        'Content-Disposition': `attachment; filename="${cleanFilename}"`
       }
     })
 
