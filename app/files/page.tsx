@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 
 // 型別定義
 type PhotoRecord = {
@@ -323,11 +324,12 @@ export default function FilesViewPage() {
                             onChange={() => handlePhotoSelect(photo.id)}
                             className="w-4 h-4"
                           />
-                        </td>
-                        <td className="p-3">
-                          <img 
+                        </td>                        <td className="p-3">
+                          <Image 
                             src={photo.file_url} 
                             alt={photo.filename}
+                            width={64}
+                            height={64}
                             className="w-16 h-16 object-cover rounded"
                           />
                         </td>

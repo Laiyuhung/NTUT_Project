@@ -69,7 +69,6 @@ export default function PhotoUploadPage() {
     
     return nearest.station.station_name
   }
-
   useEffect(() => {
     fetch('/api/station-list')
       .then(res => res.json())
@@ -113,7 +112,7 @@ export default function PhotoUploadPage() {
         }
       })
       .catch(err => console.error('載入測站清單失敗：', err))
-  }, [])
+  }, [activeTab, findNearestStation])
 
   const handleUpload = async () => {
     if (!file) return alert('請選擇圖片')
