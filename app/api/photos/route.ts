@@ -59,13 +59,17 @@ export async function GET(request: NextRequest) {
       return {
         id: photo.id.toString(),
         filename: photo.filename || photo.file_url?.split('/').pop() || 'unknown.jpg',
-        taken_at: photo.taken_at,
+        taken_at: photo.taken_at, // 直接使用，不進行時區轉換
         latitude: parseFloat(photo.latitude) || 0,
         longitude: parseFloat(photo.longitude) || 0,
         nearest_station: photo.nearest_station || '',
         uploaded_at: photo.created_at || photo.uploaded_at,
         file_size: photo.file_size || 0,
-        file_url: fileUrl
+        file_url: fileUrl,
+        // 加入預覽圖 URL (同樣的 URL，但前端可以用不同的參數)
+        preview_url: fileUrl,
+        // 加入檔案類型資訊
+        file_type: photo.file_type || 'image/jpeg'
       }
     }) || []
 

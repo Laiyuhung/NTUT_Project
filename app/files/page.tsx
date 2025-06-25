@@ -14,6 +14,8 @@ type PhotoRecord = {
   uploaded_at: string
   file_size: number
   file_url: string
+  preview_url?: string
+  file_type?: string
 }
 
 type CsvRecord = {
@@ -238,11 +240,24 @@ export default function FilesViewPage() {
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  }
-
-  // 格式化日期
+  }  // 格式化日期 - taken_at 本身就是台灣時間
   const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleString('zh-TW')
+    if (!dateString) return '未知時間'
+    try {
+      const date = new Date(dateString)
+      // 直接格式化，不需要指定時區
+      return date.toLocaleString('zh-TW', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      })
+    } catch (error) {
+      console.error('日期格式化錯誤:', error)
+      return '時間格式錯誤'
+    }
   }
 
   return (
@@ -391,13 +406,29 @@ export default function FilesViewPage() {
                             className="w-4 h-4"
                           />
                         </td>                        <td className="p-3">
-                          <Image 
-                            src={photo.file_url} 
-                            alt={photo.filename}
-                            width={64}
-                            height={64}
-                            className="w-16 h-16 object-cover rounded"
-                          />
+                          <div className="relative w-16 h-16">
+                            <Image 
+                              src={photo.preview_url || photo.file_url} 
+                              alt={photo.filename}
+                              width={64}
+                              height={64}
+                              className="w-16 h-16 object-cover rounded border border-gray-200"
+                              onError={(e) => {
+                                // 如果圖片載入失敗，顯示預設圖示
+                                const target = e.target as HTMLImageElement
+                                target.style.display = 'none'
+                                const parent = target.parentElement
+                                if (parent) {
+                                  parent.innerHTML = `
+                                    <div class="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
+                                      <span class="text-gray-500 text-xs">圖片</span>
+                                    </div>
+                                  `
+                                }
+                              }}
+                              loading="lazy"
+                            />
+                          </div>
                         </td>
                         <td className="p-3 text-sm">{photo.filename}</td>
                         <td className="p-3 text-sm">{photo.nearest_station}</td>
