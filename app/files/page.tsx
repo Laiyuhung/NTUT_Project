@@ -352,11 +352,11 @@ export default function FilesViewPage() {
   }
 
   // 格式化檔案大小
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  }  // 格式化日期 - taken_at 本身就是台灣時間
+//   const formatFileSize = (bytes: number): string => {
+//     if (bytes < 1024) return `${bytes} B`
+//     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+//     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+//   }  // 格式化日期 - taken_at 本身就是台灣時間
   const formatDate = (dateString: string): string => {
     if (!dateString) return '未知時間'
     try {
@@ -412,7 +412,7 @@ export default function FilesViewPage() {
                 <strong>錯誤：</strong> {error}
               </div>
             )}            {/* 調試區域 */}
-            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded">
+            {/* <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded">
               <h3 className="font-semibold mb-2">調試工具</h3>              <div className="flex gap-2 mb-2">
                 <button
                   onClick={checkBucketFiles}
@@ -434,7 +434,7 @@ export default function FilesViewPage() {
                 </button>
               </div>
               {/* 顯示第一張照片的詳細資訊 */}
-              {photos.length > 0 && (
+              {/* {photos.length > 0 && (
                 <div className="mt-3 p-3 bg-blue-50 rounded">
                   <h4 className="font-medium mb-2">第一張照片資訊：</h4>
                   <div className="text-sm space-y-1">
@@ -461,13 +461,13 @@ export default function FilesViewPage() {
                     />
                   </div>
                 </div>
-              )}
-              {debugInfo && (
+              )} */}
+              {/* {debugInfo && (
                 <div className="text-xs bg-gray-100 p-2 rounded mt-2">
                   <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
                 </div>
-              )}
-            </div>
+              )} */}
+            {/* </div> */}
             {/* 篩選器 */}
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
               <h3 className="font-semibold mb-3">篩選條件</h3>
