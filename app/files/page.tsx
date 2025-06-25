@@ -101,6 +101,8 @@ export default function FilesViewPage() {
     if (activeTab === 'photos') {
       setLoading(true)
       setError(null)
+      console.log('開始載入照片清單...')
+      
       // 這裡需要您實作 API endpoint
       fetch('/api/photos')
         .then(res => {
@@ -113,8 +115,17 @@ export default function FilesViewPage() {
           if (data.error) {
             throw new Error(data.error + (data.details ? `: ${data.details}` : ''))
           }
+          console.log('照片清單載入成功:', {
+            count: data.length,
+            sample: data[0],
+            urls: data.slice(0, 3).map((p: PhotoRecord) => ({ 
+              filename: p.filename, 
+              file_url: p.file_url,
+              preview_url: p.preview_url 
+            }))
+          })
+          
           setPhotos(Array.isArray(data) ? data : [])
-          console.log('載入的照片數量:', data.length)
         })
         .catch(err => {
           console.error('載入照片清單失敗：', err)
@@ -295,9 +306,7 @@ export default function FilesViewPage() {
               <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
                 <strong>錯誤：</strong> {error}
               </div>
-            )}
-
-            {/* 調試區域 */}
+            )}            {/* 調試區域 */}
             <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded">
               <h3 className="font-semibold mb-2">調試工具</h3>
               <div className="flex gap-2 mb-2">
@@ -308,6 +317,35 @@ export default function FilesViewPage() {
                   檢查 Bucket 檔案
                 </button>
               </div>
+              {/* 顯示第一張照片的詳細資訊 */}
+              {photos.length > 0 && (
+                <div className="mt-3 p-3 bg-blue-50 rounded">
+                  <h4 className="font-medium mb-2">第一張照片資訊：</h4>
+                  <div className="text-sm space-y-1">
+                    <div><strong>檔名：</strong> {photos[0].filename}</div>
+                    <div><strong>File URL：</strong> <a href={photos[0].file_url} target="_blank" className="text-blue-600 break-all">{photos[0].file_url}</a></div>
+                    <div><strong>Preview URL：</strong> <a href={photos[0].preview_url} target="_blank" className="text-blue-600 break-all">{photos[0].preview_url}</a></div>
+                    <div><strong>檔案類型：</strong> {photos[0].file_type}</div>
+                  </div>
+                  <div className="mt-2">
+                    <img 
+                      src={photos[0].preview_url || photos[0].file_url} 
+                      alt="測試預覽" 
+                      className="w-20 h-20 object-cover border rounded"
+                      onLoad={() => console.log('✅ 調試區域圖片載入成功')}
+                      onError={(e) => {
+                        console.error('❌ 調試區域圖片載入失敗:', e)
+                        const target = e.target as HTMLImageElement
+                        target.style.display = 'none'
+                        const span = document.createElement('span')
+                        span.textContent = '❌ 載入失敗'
+                        span.className = 'text-red-500 text-sm'
+                        target.parentNode?.appendChild(span)
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
               {debugInfo && (
                 <div className="text-xs bg-gray-100 p-2 rounded mt-2">
                   <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
@@ -382,8 +420,7 @@ export default function FilesViewPage() {
               <div className="text-center py-8">載入中...</div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full table-auto">
-                  <thead>
+                <table className="w-full table-auto">                  <thead>
                     <tr className="bg-gray-100">
                       <th className="p-3 text-left">選擇</th>
                       <th className="p-3 text-left">預覽</th>
@@ -391,7 +428,6 @@ export default function FilesViewPage() {
                       <th className="p-3 text-left">測站</th>
                       <th className="p-3 text-left">拍攝時間</th>
                       <th className="p-3 text-left">位置</th>
-                      <th className="p-3 text-left">檔案大小</th>
                       <th className="p-3 text-left">操作</th>
                     </tr>
                   </thead>
@@ -406,25 +442,33 @@ export default function FilesViewPage() {
                             className="w-4 h-4"
                           />
                         </td>                        <td className="p-3">
-                          <div className="relative w-16 h-16">
+                          <div className="relative w-16 h-16 bg-gray-100 rounded border border-gray-200 flex items-center justify-center">
                             <Image 
                               src={photo.preview_url || photo.file_url} 
                               alt={photo.filename}
                               width={64}
                               height={64}
-                              className="w-16 h-16 object-cover rounded border border-gray-200"
+                              className="w-16 h-16 object-cover rounded"
                               onError={(e) => {
+                                console.error('圖片載入失敗:', {
+                                  filename: photo.filename,
+                                  preview_url: photo.preview_url,
+                                  file_url: photo.file_url,
+                                  error: e
+                                })
                                 // 如果圖片載入失敗，顯示預設圖示
                                 const target = e.target as HTMLImageElement
                                 target.style.display = 'none'
                                 const parent = target.parentElement
-                                if (parent) {
-                                  parent.innerHTML = `
-                                    <div class="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
-                                      <span class="text-gray-500 text-xs">圖片</span>
-                                    </div>
-                                  `
+                                if (parent && !parent.querySelector('.error-placeholder')) {
+                                  const placeholder = document.createElement('div')
+                                  placeholder.className = 'error-placeholder text-gray-500 text-xs text-center w-16 h-16 flex flex-col items-center justify-center'
+                                  placeholder.innerHTML = '<div>📷</div><div class="text-xs">無法預覽</div>'
+                                  parent.appendChild(placeholder)
                                 }
+                              }}
+                              onLoad={() => {
+                                console.log('圖片載入成功:', photo.filename)
                               }}
                               loading="lazy"
                             />
@@ -436,7 +480,6 @@ export default function FilesViewPage() {
                         <td className="p-3 text-sm">
                           {photo.latitude.toFixed(4)}, {photo.longitude.toFixed(4)}
                         </td>
-                        <td className="p-3 text-sm">{formatFileSize(photo.file_size)}</td>
                         <td className="p-3">
                           <a 
                             href={photo.file_url}
@@ -473,12 +516,9 @@ export default function FilesViewPage() {
                 <div>
                   <span className="text-gray-600">已選擇：</span>
                   <span className="font-medium">{selectedPhotos.length}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600">總大小：</span>
-                  <span className="font-medium">
-                    {formatFileSize(photos.reduce((sum, p) => sum + p.file_size, 0))}
-                  </span>
+                </div>                <div>
+                  <span className="text-gray-600">已載入：</span>
+                  <span className="font-medium">完成</span>
                 </div>
               </div>
             </div>

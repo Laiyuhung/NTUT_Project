@@ -45,18 +45,24 @@ export async function GET(request: NextRequest) {
     console.log('查詢結果數量:', data?.length || 0)
     console.log('查詢結果樣本:', data?.[0])    // 轉換資料格式以符合前端期望的格式
     const formattedData = data?.map(photo => {
+      console.log('處理照片:', { id: photo.id, filename: photo.filename, file_url: photo.file_url })
+      
       // 生成正確的檔案 URL
       let fileUrl = photo.file_url || photo.image_url || ''
       
       // 如果檔案 URL 是相對路徑，則生成完整的 Supabase Storage URL
       if (fileUrl && !fileUrl.startsWith('http')) {
         const bucket = 'uploads'
-        // 確保路徑正確：如果 file_url 已經包含 photos/，就直接使用
-        const filePath = fileUrl
-        fileUrl = supabase.storage.from(bucket).getPublicUrl(filePath).data.publicUrl
-      }
-
-      return {
+        // 清理路徑：移除開頭的 / 如果存在
+        let cleanPath = fileUrl.startsWith('/') ? fileUrl.substring(1) : fileUrl
+        // 如果路徑不包含 photos/，則添加它
+        if (!cleanPath.startsWith('photos/')) {
+          cleanPath = `photos/${cleanPath}`
+        }
+        const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(cleanPath)
+        fileUrl = urlData.publicUrl
+        console.log('生成的 Storage URL:', fileUrl)
+      }return {
         id: photo.id.toString(),
         filename: photo.filename || photo.file_url?.split('/').pop() || 'unknown.jpg',
         taken_at: photo.taken_at, // 直接使用，不進行時區轉換
@@ -64,7 +70,7 @@ export async function GET(request: NextRequest) {
         longitude: parseFloat(photo.longitude) || 0,
         nearest_station: photo.nearest_station || '',
         uploaded_at: photo.created_at || photo.uploaded_at,
-        file_size: photo.file_size || 0,
+        file_size: 0, // 暫時設為 0，因為不顯示檔案大小
         file_url: fileUrl,
         // 加入預覽圖 URL (同樣的 URL，但前端可以用不同的參數)
         preview_url: fileUrl,
