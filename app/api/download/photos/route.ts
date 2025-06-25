@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
     const csvHeaders = 'ID,檔名,拍攝時間,緯度,經度,最近測站,上傳時間,檔案類型\n'
     const csvRows = photos.map(photo => {
       // 處理可能包含逗號的欄位，用雙引號包圍
-      const escapeCSV = (value: any) => {
+      const escapeCSV = (value: string | number | null | undefined) => {
         if (value === null || value === undefined) return ''
         const str = String(value)
         if (str.includes(',') || str.includes('"') || str.includes('\n')) {
