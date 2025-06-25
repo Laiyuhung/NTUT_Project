@@ -26,10 +26,9 @@ export async function POST(request: NextRequest) {
 
     // 如果只有一張照片，直接返回該照片的下載連結
     if (photos.length === 1) {
-      const photo = photos[0]
-        // 從 Supabase Storage 獲取檔案
+      const photo = photos[0]      // 從 Supabase Storage 獲取檔案
       const { data: fileData, error: downloadError } = await supabase.storage
-        .from('photos') // 照片存儲在 photos bucket
+        .from('uploads') // 所有檔案都在 uploads bucket
         .download(photo.file_url)
 
       if (downloadError) {

@@ -13,10 +13,9 @@ export async function POST(req: NextRequest) {
 
   if (!file) return NextResponse.json({ error: '缺少檔案' }, { status: 400 })
 
-  const filePath = `photos/${uuidv4()}-${file.name}`
-  // 1. 上傳檔案
+  const filePath = `photos/${uuidv4()}-${file.name}`  // 1. 上傳檔案
   const { data: uploadData, error: uploadError } = await supabase.storage
-    .from('photos')
+    .from('uploads')
     .upload(filePath, file, {
       cacheControl: '3600',
       upsert: false,

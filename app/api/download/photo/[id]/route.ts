@@ -26,7 +26,7 @@ export async function GET(
       return NextResponse.json({ error: '找不到指定的照片' }, { status: 404 })
     }    // 從 Supabase Storage 獲取檔案
     const { data: fileData, error: downloadError } = await supabase.storage
-      .from('photos') // 照片存儲在 photos bucket
+      .from('uploads') // 所有檔案都在 uploads bucket
       .download(photo.file_url)
 
     if (downloadError || !fileData) {
