@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import type * as L from 'leaflet'
 
 // 測站型別
 type Station = {
@@ -23,7 +24,7 @@ export default function PhotoUploadPage() {
   const [locating, setLocating] = useState(false)
   const [activeTab, setActiveTab] = useState<'auto' | 'manual'>('auto')
   const [showMap, setShowMap] = useState(false)
-  const mapRef = useRef<any>(null)
+  const mapRef = useRef<L.Map | null>(null)
   const mapContainerRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const utc = new Date()
