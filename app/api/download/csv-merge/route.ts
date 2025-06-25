@@ -83,13 +83,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 建立合併後的CSV內容
-    const csvContent = mergedData.join('\n')
-
-    // 返回合併後的CSV檔案
+    const csvContent = mergedData.join('\n')    // 返回合併後的CSV檔案
+    const timestamp = new Date().toISOString().replace(/[-:.]/g, '').slice(0, 15) // YYYYMMDDTHHMMSS
     return new NextResponse(csvContent, {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="merged_data_${new Date().toISOString().slice(0, 10)}.csv"`
+        'Content-Disposition': `attachment; filename="merged_data_${timestamp}.csv"`
       }
     })
 

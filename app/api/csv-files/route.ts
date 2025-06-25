@@ -34,17 +34,14 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Supabase 查詢錯誤：', error)
       return NextResponse.json({ error: '查詢CSV檔案失敗' }, { status: 500 })
-    }
-
-    // 轉換資料格式以符合前端期望的格式
+    }    // 轉換資料格式以符合前端期望的格式
     const formattedData = data?.map(csv => ({
       id: csv.id.toString(),
-      filename: csv.filename || 'unknown.csv',
+      filename: csv.filename || `${csv.station_name}_${csv.upload_date || csv.created_at?.split('T')[0]}.csv`,
       station_name: csv.station_name || '',
       upload_date: csv.upload_date || csv.created_at?.split('T')[0],
       uploaded_at: csv.created_at,
       record_count: csv.record_count || 0,
-      file_size: csv.file_size || 0,
       file_url: csv.file_url || ''
     })) || []
 
