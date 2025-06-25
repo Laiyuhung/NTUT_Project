@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { supabase } from '../../../../lib/supabaseClient'
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,29 +9,40 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '請提供有效的照片ID陣列' }, { status: 400 })
     }
 
-    // 在實際應用中，這裡應該從資料庫獲取照片資訊
-    // 並從儲存系統（如 Supabase Storage）下載檔案
-    
-    // 模擬照片資料
-    const mockPhotos = [
-      { id: '1', filename: 'weather_photo_001.jpg', file_url: '/uploads/photos/weather_photo_001.jpg' },
-      { id: '2', filename: 'weather_photo_002.jpg', file_url: '/uploads/photos/weather_photo_002.jpg' },
-      { id: '3', filename: 'weather_photo_003.jpg', file_url: '/uploads/photos/weather_photo_003.jpg' }
-    ]
+    // 從 Supabase 查詢照片資訊
+    const { data: photos, error } = await supabase
+      .from('photos')
+      .select('*')
+      .in('id', photoIds)
 
-    const selectedPhotos = mockPhotos.filter(photo => photoIds.includes(photo.id))
+    if (error) {
+      console.error('查詢照片失敗：', error)
+      return NextResponse.json({ error: '查詢照片失敗' }, { status: 500 })
+    }
 
-    if (selectedPhotos.length === 0) {
+    if (!photos || photos.length === 0) {
       return NextResponse.json({ error: '找不到指定的照片' }, { status: 404 })
     }
 
-    // 如果只有一張照片，直接返回該照片
-    if (selectedPhotos.length === 1) {
-      const photo = selectedPhotos[0]
-      // 在實際應用中，這裡應該從實際的儲存系統獲取檔案
-      const fileContent = `模擬的照片內容：${photo.filename}`
+    // 如果只有一張照片，直接返回該照片的下載連結
+    if (photos.length === 1) {
+      const photo = photos[0]
       
-      return new NextResponse(fileContent, {
+      // 從 Supabase Storage 獲取檔案
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('photos') // 假設 bucket 名稱為 photos
+        .download(photo.file_path || photo.filename)
+
+      if (downloadError) {
+        console.error('下載照片失敗：', downloadError)
+        return NextResponse.json({ error: '下載照片失敗' }, { status: 500 })
+      }
+
+      // 轉換為 ArrayBuffer 然後再轉為 Buffer
+      const arrayBuffer = await fileData.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+
+      return new NextResponse(buffer, {
         headers: {
           'Content-Type': 'image/jpeg',
           'Content-Disposition': `attachment; filename="${photo.filename}"`
@@ -39,11 +51,17 @@ export async function POST(request: NextRequest) {
     }
 
     // 多張照片的情況，返回照片清單供前端處理
-    // 在實際應用中，建議使用 ZIP 壓縮或提供個別下載連結
+    // 建議使用 ZIP 壓縮或提供個別下載連結
+    const photoList = photos.map(photo => ({
+      id: photo.id,
+      filename: photo.filename,
+      downloadUrl: `/api/download/photo/${photo.id}` // 個別下載連結
+    }))
+
     return NextResponse.json({
-      message: '批次下載功能需要ZIP支援，請安裝jszip套件',
-      photos: selectedPhotos,
-      suggestion: '建議逐一下載或使用ZIP壓縮功能'
+      message: '多張照片建議個別下載',
+      photos: photoList,
+      suggestion: '請逐一下載或使用ZIP壓縮功能'
     })
 
   } catch (error) {

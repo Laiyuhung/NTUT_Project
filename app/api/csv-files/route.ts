@@ -1,72 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-// 模擬CSV檔案資料 - 實際應用中這應該從資料庫獲取
-const mockCsvFiles = [
-  {
-    id: '1',
-    filename: 'taipei_weather_20250620.csv',
-    station_name: '台北',
-    upload_date: '2025-06-20',
-    uploaded_at: '2025-06-20T12:00:00',
-    record_count: 1440, // 一天每分鐘一筆記錄
-    file_size: 245760, // 240KB
-    file_url: '/uploads/csv/taipei_weather_20250620.csv'
-  },
-  {
-    id: '2',
-    filename: 'xinyi_weather_20250621.csv',
-    station_name: '信義',
-    upload_date: '2025-06-21',
-    uploaded_at: '2025-06-21T15:30:00',
-    record_count: 1440,
-    file_size: 251904, // 246KB
-    file_url: '/uploads/csv/xinyi_weather_20250621.csv'
-  },
-  {
-    id: '3',
-    filename: 'songshan_weather_20250622.csv',
-    station_name: '松山',
-    upload_date: '2025-06-22',
-    uploaded_at: '2025-06-22T11:15:00',
-    record_count: 1440,
-    file_size: 248832, // 243KB
-    file_url: '/uploads/csv/songshan_weather_20250622.csv'
-  },
-  {
-    id: '4',
-    filename: 'taipei_weather_20250623.csv',
-    station_name: '台北',
-    upload_date: '2025-06-23',
-    uploaded_at: '2025-06-23T09:45:00',
-    record_count: 1440,
-    file_size: 247808, // 242KB
-    file_url: '/uploads/csv/taipei_weather_20250623.csv'
-  }
-]
+import { supabase } from '../../../lib/supabaseClient'
 
 export async function GET(request: NextRequest) {
   try {
-    // 在實際應用中，這裡應該從資料庫查詢CSV檔案資料
     const searchParams = request.nextUrl.searchParams
     const station = searchParams.get('station')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
 
-    let filteredCsvs = mockCsvFiles
+    // 從 Supabase 查詢 CSV 檔案資料
+    let query = supabase
+      .from('csv_uploads') // 假設資料表名稱為 csv_uploads
+      .select('*')
 
+    // 根據篩選條件添加查詢條件
     if (station) {
-      filteredCsvs = filteredCsvs.filter(csv => csv.station_name === station)
+      query = query.eq('station_name', station)
     }
 
     if (startDate) {
-      filteredCsvs = filteredCsvs.filter(csv => csv.upload_date >= startDate)
+      query = query.gte('upload_date', startDate)
     }
 
     if (endDate) {
-      filteredCsvs = filteredCsvs.filter(csv => csv.upload_date <= endDate)
+      query = query.lte('upload_date', endDate)
     }
 
-    return NextResponse.json(filteredCsvs)
+    // 按上傳時間倒序排列
+    query = query.order('created_at', { ascending: false })
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error('Supabase 查詢錯誤：', error)
+      return NextResponse.json({ error: '查詢CSV檔案失敗' }, { status: 500 })
+    }
+
+    // 轉換資料格式以符合前端期望的格式
+    const formattedData = data?.map(csv => ({
+      id: csv.id.toString(),
+      filename: csv.filename || 'unknown.csv',
+      station_name: csv.station_name || '',
+      upload_date: csv.upload_date || csv.created_at?.split('T')[0],
+      uploaded_at: csv.created_at,
+      record_count: csv.record_count || 0,
+      file_size: csv.file_size || 0,
+      file_url: csv.file_url || ''
+    })) || []
+
+    return NextResponse.json(formattedData)
   } catch (error) {
     console.error('獲取CSV檔案清單失敗：', error)
     return NextResponse.json({ error: '獲取CSV檔案清單失敗' }, { status: 500 })
