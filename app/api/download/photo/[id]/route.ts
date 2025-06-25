@@ -2,17 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '../../../../../lib/supabaseClient'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export async function GET(
   request: NextRequest,
   { params }: RouteParams
-) {
-  try {
-    const photoId = params.id
+) {  try {
+    const { id } = await params
+    const photoId = id
 
     // 從 Supabase 查詢照片資訊
     const { data: photo, error } = await supabase
