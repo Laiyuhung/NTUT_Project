@@ -13,13 +13,14 @@ export default function Navbar() {
   return (
     <nav className="bg-blue-600 text-white shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
+        <div className="flex justify-between items-center h-16">          {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
             <div className="text-xl font-bold">
               🌤️ 氣象資料系統
             </div>
-          </Link>          {/* Desktop Menu */}
+          </Link>
+
+          {/* Desktop Menu */}
           <div className="hidden md:flex space-x-8">
             <Link 
               href="/" 
@@ -75,10 +76,11 @@ export default function Navbar() {
                     d="M4 6h16M4 12h16M4 18h16" 
                   />
                 )}
-              </svg>
-            </button>
+              </svg>            </button>
           </div>
-        </div>        {/* Mobile Menu */}
+        </div>
+
+        {/* Mobile Menu */}
         {isMenuOpen && (
           <div className="md:hidden bg-blue-700 rounded-lg mt-2 mb-2">
             <div className="px-2 pt-2 pb-3 space-y-1">
