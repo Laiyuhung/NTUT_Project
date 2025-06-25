@@ -44,13 +44,14 @@ export async function POST(request: NextRequest) {
     let headerAdded = false
 
     for (const csvFile of csvFiles) {
-      try {        // 從 Supabase Storage 下載 CSV 檔案
+      try {
+        // 從 Supabase Storage 下載 CSV 檔案
         const { data: fileData, error: downloadError } = await supabase.storage
           .from('uploads') // 所有檔案都在 uploads bucket
-          .download(csvFile.file_path || csvFile.filename)
+          .download(csvFile.file_url)
 
         if (downloadError) {
-          console.error(`下載檔案 ${csvFile.filename} 失敗：`, downloadError)
+          console.error(`下載檔案 ${csvFile.file_url} 失敗：`, downloadError)
           continue
         }
 
@@ -65,8 +66,7 @@ export async function POST(request: NextRequest) {
           if (i === 0) {
             if (!headerAdded) {
               mergedData.push(line)
-              headerAdded = true
-            }
+              headerAdded = true            }
             continue
           }
           
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
           mergedData.push(line)
         }
       } catch (fileError) {
-        console.error(`處理檔案 ${csvFile.filename} 時發生錯誤：`, fileError)
+        console.error(`處理檔案 ${csvFile.file_url} 時發生錯誤：`, fileError)
         continue
       }
     }
