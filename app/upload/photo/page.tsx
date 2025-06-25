@@ -96,8 +96,7 @@ export default function PhotoUploadPage() {
       },
       (err) => {
         console.error('自動取得定位失敗：', err.message)
-        setLocating(false)
-      },
+        setLocating(false)      },
       {
         enableHighAccuracy: true,
         timeout: 10000,
@@ -105,6 +104,7 @@ export default function PhotoUploadPage() {
       }
     )
   }
+
   useEffect(() => {
     fetch('/api/station-list')
       .then(res => res.json())
@@ -112,7 +112,39 @@ export default function PhotoUploadPage() {
         setStations(data)
         // 測站載入完成後，如果是自動模式才自動取得定位
         if (activeTab === 'auto') {
-          handleAutoLocation()
+          // 直接在這裡執行定位邏輯
+          setLocating(true)
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const { latitude, longitude } = pos.coords
+
+              if (!isInTaipeiRegion(latitude, longitude)) {
+                console.log('定位點不在雙北地區')
+                setActiveTab('manual')
+                setLocating(false)
+                return
+              }
+
+              const nearest = findNearestStation(latitude, longitude)
+
+              setForm(f => ({
+                ...f,
+                latitude: latitude.toString(),
+                longitude: longitude.toString(),
+                nearest_station: nearest,
+              }))
+              setLocating(false)
+            },
+            (err) => {
+              console.error('自動取得定位失敗：', err.message)
+              setLocating(false)
+            },
+            {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 60000
+            }
+          )
         }
       })
       .catch(err => console.error('載入測站清單失敗：', err))
