@@ -730,9 +730,9 @@ export default function FilesViewPage() {
                       <th className="p-3 text-left">測站</th>
                       <th className="p-3 text-left">資料日期</th>
                       <th className="p-3 text-left">上傳時間</th>
-                      <th className="p-3 text-left">記錄數</th>
-                      <th className="p-3 text-left">檔案大小</th>
-                      <th className="p-3 text-left">操作</th>
+                      {/* <th className="p-3 text-left">記錄數</th>
+                      <th className="p-3 text-left">檔案大小</th> */}
+                      {/* <th className="p-3 text-left">操作</th> */}
                     </tr>
                   </thead>
                   <tbody>
@@ -750,9 +750,9 @@ export default function FilesViewPage() {
                         <td className="p-3 text-sm">{csv.station_name}</td>
                         <td className="p-3 text-sm">{csv.upload_date}</td>
                         <td className="p-3 text-sm">{formatDate(csv.uploaded_at)}</td>
-                        <td className="p-3 text-sm">{csv.record_count.toLocaleString()}</td>
-                        <td className="p-3 text-sm">{formatFileSize(csv.file_size)}</td>
-                        <td className="p-3">
+                        {/* <td className="p-3 text-sm">{csv.record_count.toLocaleString()}</td>
+                        <td className="p-3 text-sm">{formatFileSize(csv.file_size)}</td> */}
+                        {/* <td className="p-3">
                           <a 
                             href={csv.file_url}
                             download={csv.filename}
@@ -760,7 +760,7 @@ export default function FilesViewPage() {
                           >
                             下載
                           </a>
-                        </td>
+                        </td> */}
                       </tr>
                     ))}
                   </tbody>
