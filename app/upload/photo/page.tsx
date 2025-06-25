@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 
 // 測站型別
 type Station = {
@@ -22,6 +22,9 @@ export default function PhotoUploadPage() {
   const [stations, setStations] = useState<Station[]>([])
   const [locating, setLocating] = useState(false)
   const [activeTab, setActiveTab] = useState<'auto' | 'manual'>('auto')
+  const [showMap, setShowMap] = useState(false)
+  const mapRef = useRef<any>(null)
+  const mapContainerRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const utc = new Date()
     utc.setHours(utc.getHours() + 8) // 加上台灣時區偏移
@@ -41,10 +44,79 @@ export default function PhotoUploadPage() {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
     return R * c
   }
-
   const isInTaipeiRegion = (lat: number, lng: number): boolean => {
     return lat >= 24.8 && lat <= 25.3 && lng >= 121.3 && lng <= 122.0
   }
+
+  // 初始化地圖
+  const initializeMap = (lat: number, lng: number) => {
+    if (typeof window === 'undefined') return
+
+    // 動態載入 Leaflet
+    import('leaflet').then(L => {
+      // 載入 CSS
+      if (!document.querySelector('link[href*="leaflet.css"]')) {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+        document.head.appendChild(link)
+      }
+
+      if (mapRef.current) {
+        mapRef.current.remove()
+      }
+
+      if (mapContainerRef.current) {
+        const map = L.map(mapContainerRef.current).setView([lat, lng], 15)
+        
+        // 添加 OpenStreetMap 圖層
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map)
+
+        // 添加當前位置標記（紅色）
+        const currentLocationIcon = L.divIcon({
+          html: '<div style="background-color: #ef4444; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.3);"></div>',
+          className: 'custom-marker',
+          iconSize: [16, 16],
+          iconAnchor: [8, 8]
+        })
+        
+        L.marker([lat, lng], { icon: currentLocationIcon })
+          .addTo(map)
+          .bindPopup('📍 您的位置')
+
+        // 添加最近的5個測站標記
+        nearestFiveStations.forEach((item, index) => {
+          const stationIcon = L.divIcon({
+            html: `<div style="background-color: ${index === 0 ? '#3b82f6' : '#94a3b8'}; width: 10px; height: 10px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.3);"></div>`,
+            className: 'custom-marker',
+            iconSize: [14, 14],
+            iconAnchor: [7, 7]
+          })
+          
+          L.marker([item.station.latitude, item.station.longitude], { icon: stationIcon })
+            .addTo(map)
+            .bindPopup(`${index === 0 ? '🏆 ' : ''}${item.station.station_name}<br/>距離: ${item.distance.toFixed(2)} 公里`)
+        })
+
+        mapRef.current = map
+      }
+    }).catch(err => {
+      console.error('載入地圖失敗:', err)
+    })
+  }
+
+  // 監聽位置變化，更新地圖
+  useEffect(() => {
+    if (form.latitude && form.longitude && nearestFiveStations.length > 0) {
+      const lat = parseFloat(form.latitude)
+      const lng = parseFloat(form.longitude)
+      if (!isNaN(lat) && !isNaN(lng)) {
+        setTimeout(() => initializeMap(lat, lng), 100)
+      }
+    }
+  }, [form.latitude, form.longitude, nearestFiveStations]) // eslint-disable-line react-hooks/exhaustive-deps
   const findNearestStation = (lat: number, lng: number): string => {
     if (stations.length === 0) {
       console.log('測站清單尚未載入完成')
@@ -241,9 +313,49 @@ export default function PhotoUploadPage() {
                     ) : (
                       '（尚未定位）'
                     )}
-                  </div>
-                </div>
+                  </div>                </div>
               </div>
+              
+              {/* 位置確認地圖 */}
+              {form.latitude && form.longitude && (
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setShowMap(!showMap)}
+                    className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 rounded text-sm sm:text-base"
+                  >
+                    {showMap ? '隱藏地圖' : '📍 確認位置 (顯示地圖)'}
+                  </button>
+                  
+                  {showMap && (
+                    <div className="border rounded-lg overflow-hidden">
+                      <div 
+                        ref={mapContainerRef}
+                        className="w-full h-64 sm:h-80"
+                        style={{ minHeight: '250px' }}
+                      />
+                      <div className="p-3 bg-gray-50 text-sm text-gray-600">
+                        <div className="flex items-center gap-4 flex-wrap">
+                          <div className="flex items-center gap-1">
+                            <div className="w-3 h-3 bg-red-500 rounded-full border border-white"></div>
+                            <span>您的位置</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="w-3 h-3 bg-blue-500 rounded-full border border-white"></div>
+                            <span>最近測站</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="w-3 h-3 bg-gray-400 rounded-full border border-white"></div>
+                            <span>其他測站</span>
+                          </div>
+                        </div>
+                        <div className="mt-2 text-xs">
+                          點擊標記可查看詳細資訊
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
 
