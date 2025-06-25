@@ -68,14 +68,16 @@ export default function FilesViewPage() {
     endDate: '',
   })
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>([])
-  
-  // CSV篩選
+    // CSV篩選
   const [csvFilters, setCsvFilters] = useState({
     station: '',
     startDate: '',
     endDate: '',
   })
   const [selectedCsvs, setSelectedCsvs] = useState<string[]>([])
+  const [downloading, setDownloading] = useState(false)
+  const [csvDownloading, setCsvDownloading] = useState(false)
+
   // 調試：檢查 bucket 檔案
   const checkBucketFiles = async () => {
     try {
@@ -219,13 +221,21 @@ export default function FilesViewPage() {
         ? prev.filter(id => id !== csvId)
         : [...prev, csvId]
     )
-  }
-  // 批次下載照片
+  }  // 批次下載照片
   const handlePhotoBatchDownload = async () => {
     if (selectedPhotos.length === 0) {
       alert('請選擇要下載的照片')
       return
-    }    try {
+    }
+
+    if (downloading) {
+      alert('下載正在進行中，請稍候...')
+      return
+    }
+
+    setDownloading(true)
+
+    try {
       console.log('=== 前端開始批次下載 ===')
       console.log('選中的照片 ID:', selectedPhotos)
       
@@ -277,9 +287,8 @@ export default function FilesViewPage() {
         a.click()
         document.body.removeChild(a)
         window.URL.revokeObjectURL(url)
-        
-        console.log('✅ 下載完成:', filename)
-        alert(`成功下載 ${selectedPhotos.length} 張照片！`)
+          console.log('✅ 下載完成:', filename)
+        alert(`成功下載 ${selectedPhotos.length} 張照片！\n\nZIP 檔案包含：\n- ${selectedPhotos.length} 張照片\n- 照片基本資料 CSV 檔案 (photos_metadata.csv)`)
       } else if (contentType?.includes('application/json')) {
         // 可能是 JSON 錯誤回應
         const errorData = await response.json()
@@ -292,15 +301,23 @@ export default function FilesViewPage() {
       console.error('❌ 下載錯誤：', error)
       const errorMessage = error instanceof Error ? error.message : '未知錯誤'
       alert(`下載失敗：${errorMessage}`)
+    } finally {
+      setDownloading(false)
     }
   }
-
   // 合併下載CSV
   const handleCsvMergeDownload = async () => {
     if (selectedCsvs.length === 0) {
       alert('請選擇要合併的CSV檔案')
       return
     }
+
+    if (csvDownloading) {
+      alert('下載正在進行中，請稍候...')
+      return
+    }
+
+    setCsvDownloading(true)
 
     try {
       const response = await fetch('/api/download/csv-merge', {
@@ -320,12 +337,17 @@ export default function FilesViewPage() {
         a.download = `merged_data_${new Date().toISOString().slice(0, 10)}.csv`
         a.click()
         window.URL.revokeObjectURL(url)
+        alert(`成功合併下載 ${selectedCsvs.length} 個 CSV 檔案！`)
       } else {
-        alert('合併下載失敗')
+        const errorData = await response.json().catch(() => ({ error: '未知錯誤' }))
+        alert(`合併下載失敗：${errorData.error || 'HTTP ' + response.status}`)
       }
     } catch (error) {
       console.error('合併下載錯誤：', error)
-      alert('合併下載失敗')
+      const errorMessage = error instanceof Error ? error.message : '未知錯誤'
+      alert(`合併下載失敗：${errorMessage}`)
+    } finally {
+      setCsvDownloading(false)
     }
   }
 
@@ -499,13 +521,19 @@ export default function FilesViewPage() {
                 className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
               >
                 取消全選
-              </button>
-              <button
+              </button>              <button
                 onClick={handlePhotoBatchDownload}
-                disabled={selectedPhotos.length === 0}
-                className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-4 py-2 rounded"
+                disabled={selectedPhotos.length === 0 || downloading}
+                className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-4 py-2 rounded flex items-center gap-2"
               >
-                批次下載 ({selectedPhotos.length})
+                {downloading ? (
+                  <>
+                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                    下載中...
+                  </>
+                ) : (
+                  `批次下載 (${selectedPhotos.length})`
+                )}
               </button>
             </div>
 
@@ -673,13 +701,19 @@ export default function FilesViewPage() {
                 className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
               >
                 取消全選
-              </button>
-              <button
+              </button>              <button
                 onClick={handleCsvMergeDownload}
-                disabled={selectedCsvs.length === 0}
-                className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-4 py-2 rounded"
+                disabled={selectedCsvs.length === 0 || csvDownloading}
+                className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-4 py-2 rounded flex items-center gap-2"
               >
-                合併下載 ({selectedCsvs.length})
+                {csvDownloading ? (
+                  <>
+                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                    下載中...
+                  </>
+                ) : (
+                  `合併下載 (${selectedCsvs.length})`
+                )}
               </button>
             </div>
 

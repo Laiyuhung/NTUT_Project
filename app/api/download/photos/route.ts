@@ -130,11 +130,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '所有照片下載都失敗了' }, { status: 500 })
     }    // 生成 ZIP 檔案
     console.log('🔄 開始生成 ZIP 檔案...')
+    
+    // 創建照片基本資料的 CSV
+    const csvHeaders = 'ID,檔名,拍攝時間,緯度,經度,最近測站,上傳時間,檔案類型\n'
+    const csvRows = photos.map(photo => {
+      // 處理可能包含逗號的欄位，用雙引號包圍
+      const escapeCSV = (value: any) => {
+        if (value === null || value === undefined) return ''
+        const str = String(value)
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`
+        }
+        return str
+      }
+      
+      return [
+        escapeCSV(photo.id),
+        escapeCSV(photo.filename),
+        escapeCSV(photo.taken_at),
+        escapeCSV(photo.latitude),
+        escapeCSV(photo.longitude),
+        escapeCSV(photo.nearest_station),
+        escapeCSV(photo.uploaded_at || photo.created_at),
+        escapeCSV(photo.file_type || 'image/jpeg')
+      ].join(',')
+    }).join('\n')
+    
+    const csvContent = csvHeaders + csvRows
+    console.log('📊 CSV 資料準備完成，包含', photos.length, '筆照片資料')
+    
+    // 將 CSV 加入 ZIP
+    zip.file('photos_metadata.csv', csvContent, { binary: false })
+    
     const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' })
     console.log('✅ ZIP 檔案生成完成，大小:', zipBuffer.length, 'bytes')
 
-    const today = new Date().toISOString().slice(0, 10)
-    const filename = `photos_batch_${today}_${successCount}photos.zip`
+    // 使用時間戳作為檔名避免重複
+    const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '')
+    const filename = `photos_${timestamp}_${successCount}photos.zip`
     
     // 使用 ASCII 安全的檔案名，避免中文字符編碼問題
     const safeFilename = encodeURIComponent(filename)
