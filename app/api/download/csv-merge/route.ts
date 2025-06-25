@@ -53,25 +53,24 @@ export async function POST(request: NextRequest) {
         if (downloadError) {
           console.error(`下載檔案 ${csvFile.file_url} 失敗：`, downloadError)
           continue
-        }
-
-        // 將 Blob 轉換為文字
+        }        // 將 Blob 轉換為文字
         const csvContent = await fileData.text()
         const lines = csvContent.split('\n').filter(line => line.trim() !== '')
 
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i]
           
-          // 只加入一次標頭
+          // 只加入一次標頭，並在標頭後面加上日期和測站欄位
           if (i === 0) {
             if (!headerAdded) {
-              mergedData.push(line)
-              headerAdded = true            }
+              mergedData.push(line + ',上傳日期,測站名稱')
+              headerAdded = true
+            }
             continue
           }
           
-          // 加入資料行
-          mergedData.push(line)
+          // 加入資料行，並在每行後面加上日期和測站名稱
+          mergedData.push(line + `,${csvFile.upload_date},${csvFile.station_name}`)
         }
       } catch (fileError) {
         console.error(`處理檔案 ${csvFile.file_url} 時發生錯誤：`, fileError)
