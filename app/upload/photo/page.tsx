@@ -22,23 +22,54 @@ export default function PhotoUploadPage() {
   const [stations, setStations] = useState<Station[]>([])
   const [locating, setLocating] = useState(false)
   const [activeTab, setActiveTab] = useState<'auto' | 'manual'>('auto')
-
   useEffect(() => {
     const utc = new Date()
     utc.setHours(utc.getHours() + 8) // 加上台灣時區偏移
     const taipeiTime = utc.toISOString().slice(0, 16)
     setForm(f => ({ ...f, taken_at: taipeiTime }))
   }, [])
-  useEffect(() => {
-    fetch('/api/station-list')
-      .then(res => res.json())
-      .then(data => {
-        setStations(data)
-        // 測站載入完成後，自動取得定位
-        handleAutoLocation()
-      })
-      .catch(err => console.error('載入測站清單失敗：', err))
-  }, [])
+
+  // 計算兩點間距離（公里）
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371 // 地球半徑（公里）
+    const dLat = (lat2 - lat1) * Math.PI / 180
+    const dLng = (lng2 - lng1) * Math.PI / 180
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    return R * c
+  }
+
+  const isInTaipeiRegion = (lat: number, lng: number): boolean => {
+    return lat >= 24.8 && lat <= 25.3 && lng >= 121.3 && lng <= 122.0
+  }
+
+  const findNearestStation = (lat: number, lng: number): string => {
+    if (stations.length === 0) {
+      console.log('測站清單尚未載入完成')
+      return ''
+    }
+    
+    // 計算所有測站的距離
+    const stationsWithDistance = stations.map(station => ({
+      station,
+      distance: calculateDistance(lat, lng, station.latitude, station.longitude)
+    }))
+    
+    // 依距離排序
+    stationsWithDistance.sort((a, b) => a.distance - b.distance)
+    
+    // 設定最近的測站
+    const nearest = stationsWithDistance[0]
+    setNearestStationDistance(nearest.distance)
+    
+    // 設定最近的5個測站
+    setNearestFiveStations(stationsWithDistance.slice(0, 5))
+    
+    return nearest.station.station_name
+  }
 
   const handleAutoLocation = () => {
     setLocating(true)
@@ -75,6 +106,17 @@ export default function PhotoUploadPage() {
     )
   }
 
+  useEffect(() => {
+    fetch('/api/station-list')
+      .then(res => res.json())
+      .then(data => {
+        setStations(data)
+        // 測站載入完成後，自動取得定位
+        handleAutoLocation()
+      })
+      .catch(err => console.error('載入測站清單失敗：', err))
+  }, [])
+
   const handleUpload = async () => {
     if (!file) return alert('請選擇圖片')
 
@@ -91,6 +133,7 @@ export default function PhotoUploadPage() {
     if (res.ok) alert('✅ 上傳成功！')
     else alert(`❌ 錯誤：${result.error}`)
   }
+
   const handleGetLocation = () => {
     setLocating(true)
     navigator.geolocation.getCurrentPosition(
@@ -121,47 +164,7 @@ export default function PhotoUploadPage() {
       }
     )
   }
-  const findNearestStation = (lat: number, lng: number): string => {
-    if (stations.length === 0) {
-      console.log('測站清單尚未載入完成')
-      return ''
-    }
-    
-    // 計算所有測站的距離
-    const stationsWithDistance = stations.map(station => ({
-      station,
-      distance: calculateDistance(lat, lng, station.latitude, station.longitude)
-    }))
-    
-    // 依距離排序
-    stationsWithDistance.sort((a, b) => a.distance - b.distance)
-    
-    // 設定最近的測站
-    const nearest = stationsWithDistance[0]
-    setNearestStationDistance(nearest.distance)
-    
-    // 設定最近的5個測站
-    setNearestFiveStations(stationsWithDistance.slice(0, 5))
-    
-    return nearest.station.station_name
-  }
 
-  // 計算兩點間距離（公里）
-  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
-    const R = 6371 // 地球半徑（公里）
-    const dLat = (lat2 - lat1) * Math.PI / 180
-    const dLng = (lng2 - lng1) * Math.PI / 180
-    const a = 
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLng / 2) * Math.sin(dLng / 2)
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    return R * c
-  }
-
-  const isInTaipeiRegion = (lat: number, lng: number): boolean => {
-    return lat >= 24.8 && lat <= 25.3 && lng >= 121.3 && lng <= 122.0
-  }
   return (
     <main className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
       <div className="w-full max-w-6xl flex gap-6">
@@ -175,13 +178,12 @@ export default function PhotoUploadPage() {
           </div>
 
           {activeTab === 'auto' && (
-            <>
-              <button
+            <>              <button
                 onClick={handleGetLocation}
                 disabled={locating}
                 className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 rounded"
               >
-                {locating ? '取得定位中...' : '📍 自動取得定位與測站'}
+                {locating ? '取得定位中...' : '� 重新取得定位與測站'}
               </button>
               <div className="overflow-x-auto">
                 <div className="min-w-[600px] flex space-x-2">
