@@ -183,7 +183,7 @@ export default function PhotoUploadPage() {
                 disabled={locating}
                 className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 rounded"
               >
-                {locating ? '取得定位中...' : '� 重新取得定位與測站'}
+                {locating ? '取得定位中...' : '取得定位與測站'}
               </button>
               <div className="overflow-x-auto">
                 <div className="min-w-[600px] flex space-x-2">
