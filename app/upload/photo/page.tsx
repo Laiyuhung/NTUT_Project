@@ -166,61 +166,81 @@ export default function PhotoUploadPage() {
       }
     )
   }
-
   return (
-    <main className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
-      <div className="w-full max-w-6xl flex gap-6">
-        {/* 左側主要表單 */}
-        <div className="flex-1 max-w-2xl bg-white rounded-xl shadow-md p-6 space-y-4">
-          <h2 className="text-2xl font-bold text-center">照片上傳</h2>
+    <main className="min-h-screen bg-gray-100 p-3 sm:p-6">
+      <div className="w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-4 lg:gap-6">
+        {/* 主要表單 */}
+        <div className="flex-1 bg-white rounded-xl shadow-md p-4 sm:p-6 space-y-4">
+          <h2 className="text-xl sm:text-2xl font-bold text-center">照片上傳</h2>
 
           <div className="flex border-b mb-4">
-            <button onClick={() => setActiveTab('auto')} className={`flex-1 py-2 font-medium ${activeTab === 'auto' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}>自動取得</button>
-            <button onClick={() => setActiveTab('manual')} className={`flex-1 py-2 font-medium ${activeTab === 'manual' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}>手動登錄</button>
+            <button 
+              onClick={() => setActiveTab('auto')} 
+              className={`flex-1 py-2 px-2 font-medium text-sm sm:text-base ${
+                activeTab === 'auto' 
+                  ? 'border-b-2 border-blue-500 text-blue-600' 
+                  : 'text-gray-500'
+              }`}
+            >
+              自動取得
+            </button>
+            <button 
+              onClick={() => setActiveTab('manual')} 
+              className={`flex-1 py-2 px-2 font-medium text-sm sm:text-base ${
+                activeTab === 'manual' 
+                  ? 'border-b-2 border-blue-500 text-blue-600' 
+                  : 'text-gray-500'
+              }`}
+            >
+              手動登錄
+            </button>
           </div>
 
           {activeTab === 'auto' && (
-            <>              <button
+            <>
+              <button
                 onClick={handleGetLocation}
                 disabled={locating || stations.length === 0}
-                className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-2 rounded"
+                className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 rounded text-sm sm:text-base"
               >
                 {locating ? '取得定位中...' : stations.length === 0 ? '載入測站中...' : '取得定位與測站'}
               </button>
-              <div className="overflow-x-auto">
-                <div className="min-w-[600px] flex space-x-2">
-                  <div className="flex-1 min-w-[180px]">
-                    <label className="block font-medium mb-1">緯度</label>
-                    <input
-                      value={form.latitude}
-                      onChange={(e) => setForm(f => ({ ...f, latitude: e.target.value }))}
-                      className="w-full border rounded px-3 py-2"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-[180px]">
-                    <label className="block font-medium mb-1">經度</label>
-                    <input
-                      value={form.longitude}
-                      onChange={(e) => setForm(f => ({ ...f, longitude: e.target.value }))}
-                      className="w-full border rounded px-3 py-2"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-[180px]">
-                    <label className="block font-medium mb-1">鄰近測站</label>
-                    <div className="px-3 py-2 border rounded bg-gray-100 text-gray-800">
-                      {form.nearest_station ? (
-                        <div>
-                          <div className="font-medium">{form.nearest_station}</div>
-                          {nearestStationDistance && (
-                            <div className="text-sm text-gray-600">
-                              距離: {nearestStationDistance.toFixed(2)} 公里
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        '（尚未定位）'
-                      )}
-                    </div>
+              
+              {/* 手機版：垂直排列，桌面版：水平排列 */}
+              <div className="space-y-4 lg:space-y-0 lg:space-x-4 lg:flex">
+                <div className="flex-1">
+                  <label className="block font-medium mb-1 text-sm sm:text-base">緯度</label>
+                  <input
+                    value={form.latitude}
+                    onChange={(e) => setForm(f => ({ ...f, latitude: e.target.value }))}
+                    className="w-full border rounded px-3 py-2 text-sm sm:text-base"
+                    placeholder="自動取得或手動輸入"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block font-medium mb-1 text-sm sm:text-base">經度</label>
+                  <input
+                    value={form.longitude}
+                    onChange={(e) => setForm(f => ({ ...f, longitude: e.target.value }))}
+                    className="w-full border rounded px-3 py-2 text-sm sm:text-base"
+                    placeholder="自動取得或手動輸入"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block font-medium mb-1 text-sm sm:text-base">鄰近測站</label>
+                  <div className="px-3 py-2 border rounded bg-gray-100 text-gray-800 min-h-[42px] flex items-center text-sm sm:text-base">
+                    {form.nearest_station ? (
+                      <div>
+                        <div className="font-medium">{form.nearest_station}</div>
+                        {nearestStationDistance && (
+                          <div className="text-xs sm:text-sm text-gray-600">
+                            距離: {nearestStationDistance.toFixed(2)} 公里
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      '（尚未定位）'
+                    )}
                   </div>
                 </div>
               </div>
@@ -229,11 +249,11 @@ export default function PhotoUploadPage() {
 
           {activeTab === 'manual' && (
             <div>
-              <label className="block font-medium mb-1">選擇測站</label>
+              <label className="block font-medium mb-1 text-sm sm:text-base">選擇測站</label>
               <select
                 value={form.nearest_station}
                 onChange={(e) => setForm(f => ({ ...f, nearest_station: e.target.value }))}
-                className="w-full border rounded px-3 py-2"
+                className="w-full border rounded px-3 py-2 text-sm sm:text-base"
               >
                 <option value="">請選擇測站</option>
                 {stations.map(s => (
@@ -244,36 +264,40 @@ export default function PhotoUploadPage() {
           )}
 
           <div>
-            <label className="block font-medium mb-1">拍攝時間</label>
+            <label className="block font-medium mb-1 text-sm sm:text-base">拍攝時間</label>
             <input
               type="datetime-local"
               value={form.taken_at}
               onChange={(e) => setForm(f => ({ ...f, taken_at: e.target.value }))}
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded px-3 py-2 text-sm sm:text-base"
             />
           </div>
 
           <div>
-            <label className="block font-medium mb-1">選擇照片</label>
+            <label className="block font-medium mb-1 text-sm sm:text-base">選擇照片</label>
             <input
               type="file"
               accept="image/*"
+              capture="environment"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded px-3 py-2 text-sm sm:text-base"
             />
+            <div className="text-xs text-gray-500 mt-1">
+              支援拍照或選擇相簿圖片
+            </div>
           </div>
 
           <button
             onClick={handleUpload}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded text-sm sm:text-base"
           >
             上傳
           </button>
         </div>
 
-        {/* 右側最近5個測站 */}
-        <div className="w-80 bg-white rounded-xl shadow-md p-6">
-          <h3 className="text-lg font-bold mb-4 text-center">最近測站</h3>
+        {/* 最近測站區域 - 手機版在下方，桌面版在右側 */}
+        <div className="w-full lg:w-80 bg-white rounded-xl shadow-md p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-bold mb-4 text-center">最近測站</h3>
           {nearestFiveStations.length > 0 ? (
             <div className="space-y-3">
               {nearestFiveStations.map((item, index) => (
@@ -286,18 +310,18 @@ export default function PhotoUploadPage() {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div>
-                      <div className={`font-medium ${index === 0 ? 'text-blue-800' : 'text-gray-800'}`}>
+                    <div className="flex-1 min-w-0">
+                      <div className={`font-medium text-sm sm:text-base ${index === 0 ? 'text-blue-800' : 'text-gray-800'}`}>
                         {index === 0 && '🏆 '}{item.station.station_name}
                       </div>
-                      <div className="text-sm text-gray-600">
+                      <div className="text-xs sm:text-sm text-gray-600">
                         距離: {item.distance.toFixed(2)} 公里
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-gray-500 truncate">
                         ({item.station.latitude.toFixed(4)}, {item.station.longitude.toFixed(4)})
                       </div>
                     </div>
-                    <div className={`text-lg font-bold ${
+                    <div className={`text-base sm:text-lg font-bold ml-2 ${
                       index === 0 ? 'text-blue-600' : 'text-gray-400'
                     }`}>
                       #{index + 1}
@@ -308,9 +332,9 @@ export default function PhotoUploadPage() {
             </div>
           ) : (
             <div className="text-center text-gray-500 py-8">
-              <div className="text-4xl mb-2">📍</div>
-              <div>尚未定位</div>
-              <div className="text-sm">請先使用自動取得定位功能</div>
+              <div className="text-3xl sm:text-4xl mb-2">📍</div>
+              <div className="text-sm sm:text-base">尚未定位</div>
+              <div className="text-xs sm:text-sm">請先使用自動取得定位功能</div>
             </div>
           )}
         </div>
