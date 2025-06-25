@@ -15,7 +15,7 @@ export default function PhotoUploadPage() {
     taken_at: '',
     latitude: '',
     longitude: '',
-    nearest_station: '',
+    nearest_station: '', 
   })
   const [nearestStationDistance, setNearestStationDistance] = useState<number | null>(null)
   const [nearestFiveStations, setNearestFiveStations] = useState<{station: Station, distance: number}[]>([])
