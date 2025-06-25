@@ -55,15 +55,13 @@ export default function FilesViewPage() {
     endDate: '',
   })
   const [selectedCsvs, setSelectedCsvs] = useState<string[]>([])
-
   // 載入測站清單
   useEffect(() => {
     fetch('/api/station-list')
       .then(res => res.json())
-      .then(data => setStations(data))
+      .then(data => setStations(Array.isArray(data) ? data : []))
       .catch(err => console.error('載入測站清單失敗：', err))
   }, [])
-
   // 載入照片清單
   useEffect(() => {
     if (activeTab === 'photos') {
@@ -71,12 +69,11 @@ export default function FilesViewPage() {
       // 這裡需要您實作 API endpoint
       fetch('/api/photos')
         .then(res => res.json())
-        .then(data => setPhotos(data))
+        .then(data => setPhotos(Array.isArray(data) ? data : []))
         .catch(err => console.error('載入照片清單失敗：', err))
         .finally(() => setLoading(false))
     }
   }, [activeTab])
-
   // 載入CSV清單
   useEffect(() => {
     if (activeTab === 'csv') {
@@ -84,7 +81,7 @@ export default function FilesViewPage() {
       // 這裡需要您實作 API endpoint
       fetch('/api/csv-files')
         .then(res => res.json())
-        .then(data => setCsvFiles(data))
+        .then(data => setCsvFiles(Array.isArray(data) ? data : []))
         .catch(err => console.error('載入CSV清單失敗：', err))
         .finally(() => setLoading(false))
     }
