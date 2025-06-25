@@ -47,77 +47,196 @@ export default function PhotoUploadPage() {
   }
   const isInTaipeiRegion = (lat: number, lng: number): boolean => {
     return lat >= 24.8 && lat <= 25.3 && lng >= 121.3 && lng <= 122.0
-  }
-
-  // 初始化地圖
+  }  // 初始化地圖
   const initializeMap = (lat: number, lng: number) => {
     if (typeof window === 'undefined') return
 
     // 動態載入 Leaflet
     import('leaflet').then(L => {
-      // 載入 CSS
-      if (!document.querySelector('link[href*="leaflet.css"]')) {
-        const link = document.createElement('link')
-        link.rel = 'stylesheet'
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
-        document.head.appendChild(link)
-      }
-
-      if (mapRef.current) {
-        mapRef.current.remove()
-      }
-
-      if (mapContainerRef.current) {
-        const map = L.map(mapContainerRef.current).setView([lat, lng], 15)
-        
-        // 添加 OpenStreetMap 圖層
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors'
-        }).addTo(map)
-
-        // 添加當前位置標記（紅色）
-        const currentLocationIcon = L.divIcon({
-          html: '<div style="background-color: #ef4444; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.3);"></div>',
-          className: 'custom-marker',
-          iconSize: [16, 16],
-          iconAnchor: [8, 8]
+      // 載入 CSS - 確保完全載入
+      const loadCSS = () => {
+        return new Promise<void>((resolve) => {
+          if (!document.querySelector('link[href*="leaflet.css"]')) {
+            const link = document.createElement('link')
+            link.rel = 'stylesheet'
+            link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+            link.integrity = 'sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=='
+            link.crossOrigin = ''
+            link.onload = () => {
+              console.log('Leaflet CSS loaded')
+              resolve()
+            }
+            link.onerror = () => {
+              console.warn('Failed to load Leaflet CSS, continuing anyway')
+              resolve()
+            }
+            document.head.appendChild(link)
+          } else {
+            resolve()
+          }
         })
-        
-        L.marker([lat, lng], { icon: currentLocationIcon })
-          .addTo(map)
-          .bindPopup('📍 您的位置')
-
-        // 添加最近的5個測站標記
-        nearestFiveStations.forEach((item, index) => {
-          const stationIcon = L.divIcon({
-            html: `<div style="background-color: ${index === 0 ? '#3b82f6' : '#94a3b8'}; width: 10px; height: 10px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.3);"></div>`,
-            className: 'custom-marker',
-            iconSize: [14, 14],
-            iconAnchor: [7, 7]
-          })
-          
-          L.marker([item.station.latitude, item.station.longitude], { icon: stationIcon })
-            .addTo(map)
-            .bindPopup(`${index === 0 ? '🏆 ' : ''}${item.station.station_name}<br/>距離: ${item.distance.toFixed(2)} 公里`)
-        })
-
-        mapRef.current = map
       }
+
+      loadCSS().then(() => {
+        // 確保容器存在
+        const container = mapContainerRef.current
+        if (!container) {
+          console.error('地圖容器不存在')
+          return
+        }
+        
+        // 清理舊地圖
+        if (mapRef.current) {
+          mapRef.current.remove()
+          mapRef.current = null
+        }
+
+        // 設定容器樣式
+        container.style.width = '100%'
+        container.style.height = '100%'
+        container.style.minHeight = '320px'
+        container.style.position = 'relative'
+        container.style.zIndex = '0'
+        
+        // 等待容器完全渲染
+        setTimeout(() => {
+          try {
+            // 檢查容器尺寸
+            const rect = container.getBoundingClientRect()
+            if (rect.width === 0 || rect.height === 0) {
+              console.warn('容器尺寸為 0:', rect)
+              // 強制設定尺寸
+              container.style.width = '100%'
+              container.style.height = '320px'
+            }
+
+            // 創建地圖
+            const map = L.map(container, {
+              preferCanvas: true,
+              zoomControl: true,
+              attributionControl: true,
+              fadeAnimation: false,
+              zoomAnimation: false,
+              markerZoomAnimation: false
+            }).setView([lat, lng], 15)
+            
+            // 添加圖層
+            const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              attribution: '© OpenStreetMap contributors',
+              maxZoom: 19,
+              minZoom: 1,
+              subdomains: ['a', 'b', 'c']
+            })
+            
+            tileLayer.on('load', () => {
+              console.log('地圖圖層載入完成')
+            })
+            
+            tileLayer.on('tileerror', (e) => {
+              console.warn('圖層載入錯誤:', e)
+            })
+            
+            tileLayer.addTo(map)
+
+            // 監聽地圖載入完成
+            map.whenReady(() => {
+              console.log('地圖準備完成')
+              map.invalidateSize()
+              
+              // 再次檢查並調整尺寸
+              setTimeout(() => {
+                map.invalidateSize()
+              }, 100)
+            })
+
+            // 添加當前位置標記
+            const currentLocationIcon = L.divIcon({
+              html: '<div style="background-color: #ef4444; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.3);"></div>',
+              className: 'custom-marker',
+              iconSize: [16, 16],
+              iconAnchor: [8, 8]
+            })
+            
+            L.marker([lat, lng], { icon: currentLocationIcon })
+              .addTo(map)
+              .bindPopup('📍 您的位置')
+
+            // 添加測站標記
+            nearestFiveStations.forEach((item, index) => {
+              const stationIcon = L.divIcon({
+                html: `<div style="background-color: ${index === 0 ? '#3b82f6' : '#94a3b8'}; width: 10px; height: 10px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.3);"></div>`,
+                className: 'custom-marker',
+                iconSize: [14, 14],
+                iconAnchor: [7, 7]
+              })
+              
+              L.marker([item.station.latitude, item.station.longitude], { icon: stationIcon })
+                .addTo(map)
+                .bindPopup(`${index === 0 ? '🏆 ' : ''}${item.station.station_name}<br/>距離: ${item.distance.toFixed(2)} 公里`)
+            })
+
+            // 監聽視窗大小變化
+            const resizeObserver = new ResizeObserver(() => {
+              setTimeout(() => {
+                if (map && container) {
+                  map.invalidateSize()
+                }
+              }, 50)
+            })
+            
+            resizeObserver.observe(container)
+
+            mapRef.current = map
+            
+            // 清理函數
+            const cleanup = () => {
+              resizeObserver.disconnect()
+              if (map) {
+                map.remove()
+              }
+            }
+            
+            // 將清理函數存到 ref 中
+            ;(mapRef as any).cleanup = cleanup
+            
+          } catch (error) {
+            console.error('地圖初始化失敗:', error)
+          }
+        }, 100)
+      })
     }).catch(err => {
-      console.error('載入地圖失敗:', err)
+      console.error('載入 Leaflet 失敗:', err)
     })
   }
-
-  // 監聽位置變化，更新地圖
+  // 監聽地圖顯示狀態和位置變化，更新地圖
   useEffect(() => {
-    if (form.latitude && form.longitude && nearestFiveStations.length > 0) {
+    if (showMap && form.latitude && form.longitude && nearestFiveStations.length > 0) {
       const lat = parseFloat(form.latitude)
       const lng = parseFloat(form.longitude)
       if (!isNaN(lat) && !isNaN(lng)) {
-        setTimeout(() => initializeMap(lat, lng), 100)
+        // 確保容器已渲染後再初始化地圖
+        const timer = setTimeout(() => {
+          initializeMap(lat, lng)
+        }, 150)
+        return () => clearTimeout(timer)
       }
     }
-  }, [form.latitude, form.longitude, nearestFiveStations]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [showMap, form.latitude, form.longitude, nearestFiveStations]) // eslint-disable-line react-hooks/exhaustive-deps
+    // 清理地圖
+  useEffect(() => {
+    return () => {
+      if (mapRef.current) {
+        // 執行清理函數（如果存在）
+        const cleanup = (mapRef as any).cleanup
+        if (typeof cleanup === 'function') {
+          cleanup()
+        } else {
+          mapRef.current.remove()
+        }
+        mapRef.current = null
+      }
+    }
+  }, [])
   const findNearestStation = (lat: number, lng: number): string => {
     if (stations.length === 0) {
       console.log('測站清單尚未載入完成')
@@ -326,26 +445,31 @@ export default function PhotoUploadPage() {
                   >
                     {showMap ? '隱藏地圖' : '📍 確認位置 (顯示地圖)'}
                   </button>
-                  
-                  {showMap && (
-                    <div className="border rounded-lg overflow-hidden">
+                    {showMap && (
+                    <div className="border rounded-lg overflow-hidden bg-white">
                       <div 
                         ref={mapContainerRef}
                         className="w-full h-64 sm:h-80"
-                        style={{ minHeight: '250px' }}
+                        style={{ 
+                          minHeight: '250px',
+                          height: '320px',
+                          position: 'relative',
+                          background: '#f8f9fa',
+                          display: 'block'
+                        }}
                       />
                       <div className="p-3 bg-gray-50 text-sm text-gray-600">
                         <div className="flex items-center gap-4 flex-wrap">
                           <div className="flex items-center gap-1">
-                            <div className="w-3 h-3 bg-red-500 rounded-full border border-white"></div>
+                            <div className="w-3 h-3 bg-red-500 rounded-full border border-white shadow"></div>
                             <span>您的位置</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <div className="w-3 h-3 bg-blue-500 rounded-full border border-white"></div>
+                            <div className="w-3 h-3 bg-blue-500 rounded-full border border-white shadow"></div>
                             <span>最近測站</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <div className="w-3 h-3 bg-gray-400 rounded-full border border-white"></div>
+                            <div className="w-3 h-3 bg-gray-400 rounded-full border border-white shadow"></div>
                             <span>其他測站</span>
                           </div>
                         </div>
