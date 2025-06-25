@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
     // 從 Supabase 查詢 CSV 檔案資料
     let query = supabase
-      .from('csv_uploads') // 假設資料表名稱為 csv_uploads
+      .from('station_csv_uploads') // 假設資料表名稱為 csv_uploads
       .select('*')
 
     // 根據篩選條件添加查詢條件
