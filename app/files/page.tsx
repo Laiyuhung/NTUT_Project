@@ -34,15 +34,15 @@ type Station = {
   longitude: number
 }
 
-type BucketFileInfo = {
-  name: string
-  size: number
-  created_at: string
-  updated_at: string
-  public_url: string
-  raw_metadata?: Record<string, unknown>
-  raw_file?: Record<string, unknown>
-}
+// type BucketFileInfo = {
+//   name: string
+//   size: number
+//   created_at: string
+//   updated_at: string
+//   public_url: string
+//   raw_metadata?: Record<string, unknown>
+//   raw_file?: Record<string, unknown>
+// }
 
 // type BucketDebugInfo = {
 //   bucket: string
