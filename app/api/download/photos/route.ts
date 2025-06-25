@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '../../../../lib/supabaseClient'
 import JSZip from 'jszip'
 
+// 定義照片類型
+type PhotoRecord = {
+  id: string
+  filename: string
+  taken_at: string
+  latitude: number
+  longitude: number
+  nearest_station: string
+  uploaded_at?: string
+  created_at?: string
+  file_size: number
+  file_url: string
+  file_type?: string
+}
+
 export async function POST(request: NextRequest) {
   console.log('=== 批次下載 API 開始 ===')
   try {
@@ -67,7 +82,7 @@ export async function POST(request: NextRequest) {
     let successCount = 0
     let errorCount = 0
     const processedPhotos: Array<{ 
-      photo: any, 
+      photo: PhotoRecord, 
       actualFilename: string 
     }> = []
 
