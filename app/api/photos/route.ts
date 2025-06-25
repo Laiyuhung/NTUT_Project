@@ -43,17 +43,17 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('查詢結果數量:', data?.length || 0)
-    console.log('查詢結果樣本:', data?.[0])
-
-    // 轉換資料格式以符合前端期望的格式
+    console.log('查詢結果樣本:', data?.[0])    // 轉換資料格式以符合前端期望的格式
     const formattedData = data?.map(photo => {
       // 生成正確的檔案 URL
       let fileUrl = photo.file_url || photo.image_url || ''
       
       // 如果檔案 URL 是相對路徑，則生成完整的 Supabase Storage URL
       if (fileUrl && !fileUrl.startsWith('http')) {
-        const bucket = 'weather-photos' // 確保這是您的 bucket 名稱
-        fileUrl = supabase.storage.from(bucket).getPublicUrl(fileUrl).data.publicUrl
+        const bucket = 'uploads' // 修正為您的 bucket 名稱
+        // 假設檔案路徑是 photos/檔名
+        const filePath = fileUrl.startsWith('photos/') ? fileUrl : `photos/${fileUrl}`
+        fileUrl = supabase.storage.from(bucket).getPublicUrl(filePath).data.publicUrl
       }
 
       return {

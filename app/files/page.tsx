@@ -43,6 +43,7 @@ type BucketFileInfo = {
 
 type BucketDebugInfo = {
   bucket: string
+  folder?: string
   file_count: number
   files: BucketFileInfo[]
 } | null
