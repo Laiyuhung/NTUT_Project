@@ -33,6 +33,20 @@ type Station = {
   longitude: number
 }
 
+type BucketFileInfo = {
+  name: string
+  size: number
+  created_at: string
+  updated_at: string
+  public_url: string
+}
+
+type BucketDebugInfo = {
+  bucket: string
+  file_count: number
+  files: BucketFileInfo[]
+} | null
+
 export default function FilesViewPage() {
   const [activeTab, setActiveTab] = useState<'photos' | 'csv'>('photos')
   const [photos, setPhotos] = useState<PhotoRecord[]>([])
@@ -40,7 +54,7 @@ export default function FilesViewPage() {
   const [stations, setStations] = useState<Station[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [debugInfo, setDebugInfo] = useState<any>(null)
+  const [debugInfo, setDebugInfo] = useState<BucketDebugInfo>(null)
   
   // 照片篩選
   const [photoFilters, setPhotoFilters] = useState({
