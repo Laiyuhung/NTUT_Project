@@ -38,10 +38,9 @@ export async function POST(req: NextRequest) {
   const filePath = `csv/${station_code}_${upload_date}_${uuidv4()}.csv`
 
   console.log('📁 準備上傳路徑:', filePath)
-
   // 上傳 CSV
   const { data: uploadData, error: uploadError } = await supabase.storage
-    .from('uploads')
+    .from('csv')
     .upload(filePath, file, { upsert: false })
 
   if (uploadError) {

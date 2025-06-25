@@ -44,10 +44,9 @@ export async function POST(request: NextRequest) {
     let headerAdded = false
 
     for (const csvFile of csvFiles) {
-      try {
-        // 從 Supabase Storage 下載 CSV 檔案
+      try {        // 從 Supabase Storage 下載 CSV 檔案
         const { data: fileData, error: downloadError } = await supabase.storage
-          .from('csv-files') // 假設 bucket 名稱為 csv-files
+          .from('csv') // CSV 檔案存儲在 csv bucket
           .download(csvFile.file_path || csvFile.filename)
 
         if (downloadError) {
