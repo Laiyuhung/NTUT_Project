@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
 
     // 從 Supabase 查詢 CSV 檔案資訊
     let query = supabase
-      .from('csv_uploads')
+      .from('station_csv_uploads')
       .select('*')
       .in('id', csvIds)
 
