@@ -45,7 +45,6 @@ export default function PhotoUploadPage() {
   const isInTaipeiRegion = (lat: number, lng: number): boolean => {
     return lat >= 24.8 && lat <= 25.3 && lng >= 121.3 && lng <= 122.0
   }
-
   const findNearestStation = (lat: number, lng: number): string => {
     if (stations.length === 0) {
       console.log('測站清單尚未載入完成')
@@ -69,40 +68,6 @@ export default function PhotoUploadPage() {
     setNearestFiveStations(stationsWithDistance.slice(0, 5))
     
     return nearest.station.station_name
-  }
-
-  const handleAutoLocation = () => {
-    setLocating(true)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords
-
-        if (!isInTaipeiRegion(latitude, longitude)) {
-          console.log('定位點不在雙北地區')
-          setActiveTab('manual')
-          setLocating(false)
-          return
-        }
-
-        const nearest = findNearestStation(latitude, longitude)
-
-        setForm(f => ({
-          ...f,
-          latitude: latitude.toString(),
-          longitude: longitude.toString(),
-          nearest_station: nearest,
-        }))
-        setLocating(false)
-      },
-      (err) => {
-        console.error('自動取得定位失敗：', err.message)
-        setLocating(false)      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000
-      }
-    )
   }
 
   useEffect(() => {
