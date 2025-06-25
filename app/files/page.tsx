@@ -39,6 +39,8 @@ export default function FilesViewPage() {
   const [csvFiles, setCsvFiles] = useState<CsvRecord[]>([])
   const [stations, setStations] = useState<Station[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [debugInfo, setDebugInfo] = useState<any>(null)
   
   // 照片篩選
   const [photoFilters, setPhotoFilters] = useState({
@@ -55,22 +57,49 @@ export default function FilesViewPage() {
     endDate: '',
   })
   const [selectedCsvs, setSelectedCsvs] = useState<string[]>([])
+
+  // 調試：檢查 bucket 檔案
+  const checkBucketFiles = async () => {
+    try {
+      const response = await fetch('/api/bucket-files')
+      const data = await response.json()
+      setDebugInfo(data)
+      console.log('Bucket 檔案:', data)
+    } catch (error) {
+      console.error('檢查 bucket 失敗：', error)
+      setError('檢查 bucket 失敗')
+    }
+  }
   // 載入測站清單
   useEffect(() => {
     fetch('/api/station-list')
       .then(res => res.json())
       .then(data => setStations(Array.isArray(data) ? data : []))
       .catch(err => console.error('載入測站清單失敗：', err))
-  }, [])
-  // 載入照片清單
+  }, [])  // 載入照片清單
   useEffect(() => {
     if (activeTab === 'photos') {
       setLoading(true)
+      setError(null)
       // 這裡需要您實作 API endpoint
       fetch('/api/photos')
-        .then(res => res.json())
-        .then(data => setPhotos(Array.isArray(data) ? data : []))
-        .catch(err => console.error('載入照片清單失敗：', err))
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`)
+          }
+          return res.json()
+        })
+        .then(data => {
+          if (data.error) {
+            throw new Error(data.error + (data.details ? `: ${data.details}` : ''))
+          }
+          setPhotos(Array.isArray(data) ? data : [])
+          console.log('載入的照片數量:', data.length)
+        })
+        .catch(err => {
+          console.error('載入照片清單失敗：', err)
+          setError(`載入照片清單失敗：${err.message}`)
+        })
         .finally(() => setLoading(false))
     }
   }, [activeTab])
@@ -225,11 +254,33 @@ export default function FilesViewPage() {
           >
             📊 CSV資料管理
           </button>
-        </div>
-
-        {/* 照片管理 */}
+        </div>        {/* 照片管理 */}
         {activeTab === 'photos' && (
           <div className="bg-white rounded-lg shadow-md p-6">
+            {/* 錯誤顯示 */}
+            {error && (
+              <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                <strong>錯誤：</strong> {error}
+              </div>
+            )}
+
+            {/* 調試區域 */}
+            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded">
+              <h3 className="font-semibold mb-2">調試工具</h3>
+              <div className="flex gap-2 mb-2">
+                <button
+                  onClick={checkBucketFiles}
+                  className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm"
+                >
+                  檢查 Bucket 檔案
+                </button>
+              </div>
+              {debugInfo && (
+                <div className="text-xs bg-gray-100 p-2 rounded mt-2">
+                  <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
+                </div>
+              )}
+            </div>
             {/* 篩選器 */}
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
               <h3 className="font-semibold mb-3">篩選條件</h3>
