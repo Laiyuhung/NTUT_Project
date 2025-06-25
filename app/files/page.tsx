@@ -179,7 +179,6 @@ export default function FilesViewPage() {
         : [...prev, csvId]
     )
   }
-
   // 批次下載照片
   const handlePhotoBatchDownload = async () => {
     if (selectedPhotos.length === 0) {
@@ -188,26 +187,63 @@ export default function FilesViewPage() {
     }
 
     try {
+      console.log('開始批次下載，選中的照片 ID:', selectedPhotos)
+      
       const response = await fetch('/api/download/photos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ photoIds: selectedPhotos })
       })
 
-      if (response.ok) {
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP ${response.status}`)
+      }
+
+      // 檢查回應的內容類型
+      const contentType = response.headers.get('content-type')
+      console.log('回應內容類型:', contentType)
+
+      if (contentType?.includes('application/zip') || contentType?.includes('image/')) {
+        // 下載檔案
         const blob = await response.blob()
+        console.log('下載的檔案大小:', blob.size, 'bytes')
+        
+        if (blob.size === 0) {
+          throw new Error('下載的檔案是空的')
+        }
+
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `photos_batch_${new Date().toISOString().slice(0, 10)}.zip`
+        
+        // 從回應標頭獲取檔名，或使用預設檔名
+        const contentDisposition = response.headers.get('content-disposition')
+        let filename = `photos_batch_${new Date().toISOString().slice(0, 10)}.zip`
+        
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="(.+)"/)
+          if (filenameMatch) {
+            filename = filenameMatch[1]
+          }
+        }
+        
+        a.download = filename
+        document.body.appendChild(a)
         a.click()
+        document.body.removeChild(a)
         window.URL.revokeObjectURL(url)
+        
+        console.log('下載完成:', filename)
+        alert(`成功下載 ${selectedPhotos.length} 張照片！`)
       } else {
-        alert('下載失敗')
-      }
-    } catch (error) {
+        // 可能是 JSON 錯誤回應
+        const errorData = await response.json()
+        throw new Error(errorData.error || '下載失敗')
+      }    } catch (error) {
       console.error('下載錯誤：', error)
-      alert('下載失敗')
+      const errorMessage = error instanceof Error ? error.message : '未知錯誤'
+      alert(`下載失敗：${errorMessage}`)
     }
   }
 
