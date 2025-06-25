@@ -50,15 +50,15 @@ export async function GET(request: NextRequest) {
       
       // 如果檔案 URL 是相對路徑，則生成完整的 Supabase Storage URL
       if (fileUrl && !fileUrl.startsWith('http')) {
-        const bucket = 'uploads' // 修正為您的 bucket 名稱
-        // 假設檔案路徑是 photos/檔名
-        const filePath = fileUrl.startsWith('photos/') ? fileUrl : `photos/${fileUrl}`
+        const bucket = 'uploads'
+        // 確保路徑正確：如果 file_url 已經包含 photos/，就直接使用
+        const filePath = fileUrl
         fileUrl = supabase.storage.from(bucket).getPublicUrl(filePath).data.publicUrl
       }
 
       return {
         id: photo.id.toString(),
-        filename: photo.filename || 'unknown.jpg',
+        filename: photo.filename || photo.file_url?.split('/').pop() || 'unknown.jpg',
         taken_at: photo.taken_at,
         latitude: parseFloat(photo.latitude) || 0,
         longitude: parseFloat(photo.longitude) || 0,
