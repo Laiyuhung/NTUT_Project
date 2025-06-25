@@ -39,6 +39,8 @@ type BucketFileInfo = {
   created_at: string
   updated_at: string
   public_url: string
+  raw_metadata?: any
+  raw_file?: any
 }
 
 type BucketDebugInfo = {
@@ -46,6 +48,7 @@ type BucketDebugInfo = {
   folder?: string
   file_count: number
   files: BucketFileInfo[]
+  raw_response?: any
 } | null
 
 export default function FilesViewPage() {
