@@ -44,13 +44,13 @@ type BucketFileInfo = {
   raw_file?: Record<string, unknown>
 }
 
-type BucketDebugInfo = {
-  bucket: string
-  folder?: string
-  file_count: number
-  files: BucketFileInfo[]
-  raw_response?: Record<string, unknown>
-} | null
+// type BucketDebugInfo = {
+//   bucket: string
+//   folder?: string
+//   file_count: number
+//   files: BucketFileInfo[]
+//   raw_response?: Record<string, unknown>
+// } | null
 
 export default function FilesViewPage() {  const [activeTab, setActiveTab] = useState<'photos' | 'csv'>('photos')
   const [photos, setPhotos] = useState<PhotoRecord[]>([])
