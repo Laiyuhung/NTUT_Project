@@ -9,14 +9,14 @@ type Station = {
   longitude: number
 }
 
-export default function PhotoUploadPage() {
-  const [file, setFile] = useState<File | null>(null)
+export default function PhotoUploadPage() {  const [file, setFile] = useState<File | null>(null)
   const [form, setForm] = useState({
     taken_at: '',
     latitude: '',
     longitude: '',
     nearest_station: '',
   })
+  const [nearestStationDistance, setNearestStationDistance] = useState<number | null>(null)
   const [stations, setStations] = useState<Station[]>([])
   const [locating, setLocating] = useState(false)
   const [activeTab, setActiveTab] = useState<'auto' | 'manual'>('auto')
@@ -82,19 +82,32 @@ export default function PhotoUploadPage() {
       }
     )
   }
-
   const findNearestStation = (lat: number, lng: number): string => {
     if (stations.length === 0) return ''
     let nearest = stations[0]
     let minDist = Number.MAX_VALUE
     for (const station of stations) {
-      const d = Math.hypot(lat - station.latitude, lng - station.longitude)
+      const d = calculateDistance(lat, lng, station.latitude, station.longitude)
       if (d < minDist) {
         minDist = d
         nearest = station
       }
     }
+    setNearestStationDistance(minDist)
     return nearest.station_name
+  }
+
+  // 計算兩點間距離（公里）
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371 // 地球半徑（公里）
+    const dLat = (lat2 - lat1) * Math.PI / 180
+    const dLng = (lng2 - lng1) * Math.PI / 180
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    return R * c
   }
 
   const isInTaipeiRegion = (lat: number, lng: number): boolean => {
@@ -137,11 +150,21 @@ export default function PhotoUploadPage() {
                     onChange={(e) => setForm(f => ({ ...f, longitude: e.target.value }))}
                     className="w-full border rounded px-3 py-2"
                   />
-                </div>
-                <div className="flex-1 min-w-[180px]">
+                </div>                <div className="flex-1 min-w-[180px]">
                   <label className="block font-medium mb-1">鄰近測站</label>
                   <div className="px-3 py-2 border rounded bg-gray-100 text-gray-800">
-                    {form.nearest_station || '（尚未定位）'}
+                    {form.nearest_station ? (
+                      <div>
+                        <div className="font-medium">{form.nearest_station}</div>
+                        {nearestStationDistance && (
+                          <div className="text-sm text-gray-600">
+                            距離: {nearestStationDistance.toFixed(2)} 公里
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      '（尚未定位）'
+                    )}
                   </div>
                 </div>
               </div>
