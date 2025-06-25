@@ -52,14 +52,13 @@ type BucketDebugInfo = {
   raw_response?: Record<string, unknown>
 } | null
 
-export default function FilesViewPage() {
-  const [activeTab, setActiveTab] = useState<'photos' | 'csv'>('photos')
+export default function FilesViewPage() {  const [activeTab, setActiveTab] = useState<'photos' | 'csv'>('photos')
   const [photos, setPhotos] = useState<PhotoRecord[]>([])
   const [csvFiles, setCsvFiles] = useState<CsvRecord[]>([])
   const [stations, setStations] = useState<Station[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [debugInfo, setDebugInfo] = useState<BucketDebugInfo>(null)
+  // const [debugInfo, setDebugInfo] = useState<BucketDebugInfo>(null)
   
   // 照片篩選
   const [photoFilters, setPhotoFilters] = useState({
@@ -77,9 +76,8 @@ export default function FilesViewPage() {
   const [selectedCsvs, setSelectedCsvs] = useState<string[]>([])
   const [downloading, setDownloading] = useState(false)
   const [csvDownloading, setCsvDownloading] = useState(false)
-
   // 調試：檢查 bucket 檔案
-  const checkBucketFiles = async () => {
+  /* const checkBucketFiles = async () => {
     try {
       const response = await fetch('/api/bucket-files')
       const data = await response.json()
@@ -89,10 +87,10 @@ export default function FilesViewPage() {
       console.error('檢查 bucket 失敗：', error)
       setError('檢查 bucket 失敗')
     }
-  }
+  } */
 
   // 測試下載功能
-  const testDownload = async () => {
+  /* const testDownload = async () => {
     try {
       console.log('開始測試下載...')
       const response = await fetch('/api/test-download')
@@ -112,10 +110,10 @@ export default function FilesViewPage() {
     } catch (error) {
       console.error('測試下載錯誤:', error)
     }
-  }
+  } */
 
   // 測試 POST API
-  const testPostAPI = async () => {
+  /* const testPostAPI = async () => {
     try {
       console.log('開始測試 POST API...')
       const response = await fetch('/api/test-download', {
@@ -131,7 +129,7 @@ export default function FilesViewPage() {
       console.error('POST API 測試錯誤:', error)
       alert(`POST API 測試失敗: ${error}`)
     }
-  }
+  } */
   // 載入測站清單
   useEffect(() => {
     fetch('/api/station-list')
@@ -350,13 +348,12 @@ export default function FilesViewPage() {
       setCsvDownloading(false)
     }
   }
-
   // 格式化檔案大小
-//   const formatFileSize = (bytes: number): string => {
-//     if (bytes < 1024) return `${bytes} B`
-//     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-//     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-//   }  // 格式化日期 - taken_at 本身就是台灣時間
+  /* const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  } */// 格式化日期 - taken_at 本身就是台灣時間
   const formatDate = (dateString: string): string => {
     if (!dateString) return '未知時間'
     try {
