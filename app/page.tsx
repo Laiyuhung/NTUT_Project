@@ -26,6 +26,12 @@ export default function Home() {
               >
                 📊 上傳CSV資料
               </Link>
+              <Link 
+                href="/files"
+                className="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors duration-200"
+              >
+                📁 檔案檢視
+              </Link>
             </div>
           </div>
         </div>
@@ -37,7 +43,7 @@ export default function Home() {
           <h2 className="text-3xl font-bold text-center text-gray-800 mb-12">
             系統功能
           </h2>
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="grid md:grid-cols-3 gap-8">
             <div className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
               <div className="text-4xl mb-4">📸</div>
               <h3 className="text-xl font-semibold mb-3 text-gray-800">照片上傳</h3>
@@ -61,6 +67,19 @@ export default function Home() {
                 <li>• 批量資料處理</li>
                 <li>• 格式驗證</li>
                 <li>• 錯誤提示</li>
+              </ul>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
+              <div className="text-4xl mb-4">📁</div>
+              <h3 className="text-xl font-semibold mb-3 text-gray-800">檔案檢視與下載</h3>
+              <p className="text-gray-600 mb-4">
+                管理已上傳的照片和CSV資料，提供篩選、預覽和批次下載功能。
+              </p>
+              <ul className="text-sm text-gray-500 space-y-1">
+                <li>• 智能篩選功能</li>
+                <li>• 批次下載</li>
+                <li>• 資料統計</li>
               </ul>
             </div>
           </div>

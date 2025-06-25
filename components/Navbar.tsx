@@ -19,9 +19,7 @@ export default function Navbar() {
             <div className="text-xl font-bold">
               🌤️ 氣象資料系統
             </div>
-          </Link>
-
-          {/* Desktop Menu */}
+          </Link>          {/* Desktop Menu */}
           <div className="hidden md:flex space-x-8">
             <Link 
               href="/" 
@@ -40,6 +38,12 @@ export default function Navbar() {
               className="hover:text-blue-200 transition-colors duration-200 font-medium"
             >
               CSV上傳
+            </Link>
+            <Link 
+              href="/files" 
+              className="hover:text-blue-200 transition-colors duration-200 font-medium"
+            >
+              檔案檢視
             </Link>
           </div>
 
@@ -74,9 +78,7 @@ export default function Navbar() {
               </svg>
             </button>
           </div>
-        </div>
-
-        {/* Mobile Menu */}
+        </div>        {/* Mobile Menu */}
         {isMenuOpen && (
           <div className="md:hidden bg-blue-700 rounded-lg mt-2 mb-2">
             <div className="px-2 pt-2 pb-3 space-y-1">
@@ -100,6 +102,13 @@ export default function Navbar() {
                 onClick={() => setIsMenuOpen(false)}
               >
                 CSV上傳
+              </Link>
+              <Link 
+                href="/files" 
+                className="block px-3 py-2 rounded-md text-base font-medium hover:bg-blue-800 transition-colors duration-200"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                檔案檢視
               </Link>
             </div>
           </div>
