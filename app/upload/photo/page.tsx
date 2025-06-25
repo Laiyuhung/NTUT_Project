@@ -105,14 +105,15 @@ export default function PhotoUploadPage() {
       }
     )
   }
-
   useEffect(() => {
     fetch('/api/station-list')
       .then(res => res.json())
       .then(data => {
         setStations(data)
-        // 測站載入完成後，自動取得定位
-        handleAutoLocation()
+        // 測站載入完成後，如果是自動模式才自動取得定位
+        if (activeTab === 'auto') {
+          handleAutoLocation()
+        }
       })
       .catch(err => console.error('載入測站清單失敗：', err))
   }, [])
@@ -133,8 +134,12 @@ export default function PhotoUploadPage() {
     if (res.ok) alert('✅ 上傳成功！')
     else alert(`❌ 錯誤：${result.error}`)
   }
-
   const handleGetLocation = () => {
+    if (stations.length === 0) {
+      alert('⏳ 測站資料載入中，請稍候再試')
+      return
+    }
+    
     setLocating(true)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -180,10 +185,10 @@ export default function PhotoUploadPage() {
           {activeTab === 'auto' && (
             <>              <button
                 onClick={handleGetLocation}
-                disabled={locating}
-                className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 rounded"
+                disabled={locating || stations.length === 0}
+                className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-2 rounded"
               >
-                {locating ? '取得定位中...' : '取得定位與測站'}
+                {locating ? '取得定位中...' : stations.length === 0 ? '載入測站中...' : '取得定位與測站'}
               </button>
               <div className="overflow-x-auto">
                 <div className="min-w-[600px] flex space-x-2">
