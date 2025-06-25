@@ -95,9 +95,16 @@ export async function POST(request: NextRequest) {
 
         const arrayBuffer = await fileData.arrayBuffer()
         console.log(`📦 ArrayBuffer 大小:`, arrayBuffer.byteLength)
-        
-        // 確保檔名是唯一的，如果有重複則加上編號
+          // 確保檔名是唯一的，如果有重複則加上編號
         let filename = photo.filename || `photo_${photo.id}.jpg`
+        
+        // 檢查檔名是否包含非 ASCII 字符，如果有則進行處理
+        const hasNonAscii = /[^\x00-\x7F]/.test(filename)
+        if (hasNonAscii) {
+          console.log('⚠️ 檔名包含非 ASCII 字符:', filename)
+          // 保持原檔名，JSZip 應該能處理 UTF-8 檔名
+        }
+        
         if (zip.file(filename)) {
           const ext = filename.split('.').pop()
           const name = filename.replace(`.${ext}`, '')
@@ -121,18 +128,23 @@ export async function POST(request: NextRequest) {
 
     if (successCount === 0) {
       return NextResponse.json({ error: '所有照片下載都失敗了' }, { status: 500 })
-    }
-
-    // 生成 ZIP 檔案
+    }    // 生成 ZIP 檔案
+    console.log('🔄 開始生成 ZIP 檔案...')
     const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' })
+    console.log('✅ ZIP 檔案生成完成，大小:', zipBuffer.length, 'bytes')
 
     const today = new Date().toISOString().slice(0, 10)
-    const filename = `photos_batch_${today}_${successCount}張.zip`
+    const filename = `photos_batch_${today}_${successCount}photos.zip`
+    
+    // 使用 ASCII 安全的檔案名，避免中文字符編碼問題
+    const safeFilename = encodeURIComponent(filename)
+
+    console.log('📦 準備回傳 ZIP 檔案:', filename)
 
     return new NextResponse(zipBuffer, {
       headers: {
         'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="${filename}"`
+        'Content-Disposition': `attachment; filename="${filename}"; filename*=UTF-8''${safeFilename}`
       }
     })
   } catch (error) {
