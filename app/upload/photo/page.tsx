@@ -29,13 +29,51 @@ export default function PhotoUploadPage() {
     const taipeiTime = utc.toISOString().slice(0, 16)
     setForm(f => ({ ...f, taken_at: taipeiTime }))
   }, [])
-
   useEffect(() => {
     fetch('/api/station-list')
       .then(res => res.json())
-      .then(data => setStations(data))
+      .then(data => {
+        setStations(data)
+        // 測站載入完成後，自動取得定位
+        handleAutoLocation()
+      })
       .catch(err => console.error('載入測站清單失敗：', err))
   }, [])
+
+  const handleAutoLocation = () => {
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords
+
+        if (!isInTaipeiRegion(latitude, longitude)) {
+          console.log('定位點不在雙北地區')
+          setActiveTab('manual')
+          setLocating(false)
+          return
+        }
+
+        const nearest = findNearestStation(latitude, longitude)
+
+        setForm(f => ({
+          ...f,
+          latitude: latitude.toString(),
+          longitude: longitude.toString(),
+          nearest_station: nearest,
+        }))
+        setLocating(false)
+      },
+      (err) => {
+        console.error('自動取得定位失敗：', err.message)
+        setLocating(false)
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000
+      }
+    )
+  }
 
   const handleUpload = async () => {
     if (!file) return alert('請選擇圖片')
@@ -53,7 +91,6 @@ export default function PhotoUploadPage() {
     if (res.ok) alert('✅ 上傳成功！')
     else alert(`❌ 錯誤：${result.error}`)
   }
-
   const handleGetLocation = () => {
     setLocating(true)
     navigator.geolocation.getCurrentPosition(
@@ -76,16 +113,19 @@ export default function PhotoUploadPage() {
           nearest_station: nearest,
         }))
         setLocating(false)
-      },      (err) => {
+      },
+      (err) => {
         alert(`❌ 取得定位失敗：${err.message}`)
         setActiveTab('manual')
         setLocating(false)
       }
     )
   }
-
   const findNearestStation = (lat: number, lng: number): string => {
-    if (stations.length === 0) return ''
+    if (stations.length === 0) {
+      console.log('測站清單尚未載入完成')
+      return ''
+    }
     
     // 計算所有測站的距離
     const stationsWithDistance = stations.map(station => ({
@@ -135,13 +175,12 @@ export default function PhotoUploadPage() {
           </div>
 
           {activeTab === 'auto' && (
-            <>
-              <button
+            <>              <button
                 onClick={handleGetLocation}
                 disabled={locating}
                 className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 rounded"
               >
-                {locating ? '取得定位中...' : '📍 自動取得定位與測站'}
+                {locating ? '取得定位中...' : '� 重新取得定位與測站'}
               </button>
               <div className="overflow-x-auto">
                 <div className="min-w-[600px] flex space-x-2">
