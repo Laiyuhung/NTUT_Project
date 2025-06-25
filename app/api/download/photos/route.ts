@@ -3,10 +3,13 @@ import { supabase } from '../../../../lib/supabaseClient'
 import JSZip from 'jszip'
 
 export async function POST(request: NextRequest) {
+  console.log('=== 批次下載 API 開始 ===')
   try {
     const { photoIds } = await request.json()
+    console.log('接收到的 photoIds:', photoIds)
 
     if (!photoIds || !Array.isArray(photoIds) || photoIds.length === 0) {
+      console.log('❌ 無效的照片ID陣列')
       return NextResponse.json({ error: '請提供有效的照片ID陣列' }, { status: 400 })
     }
 
@@ -66,29 +69,32 @@ export async function POST(request: NextRequest) {
     let successCount = 0
     let errorCount = 0
 
-    console.log('開始創建 ZIP 檔案...')
-
-    // 並行下載所有照片並加入 ZIP
+    console.log('開始創建 ZIP 檔案...')    // 並行下載所有照片並加入 ZIP
     const downloadPromises = photos.map(async (photo, index) => {
       try {
-        console.log(`下載照片 ${index + 1}/${photos.length}:`, photo.filename)
+        console.log(`📸 下載照片 ${index + 1}/${photos.length}:`, photo.filename, 'file_url:', photo.file_url)
 
         // 確保 file_url 格式正確
         let filePath = photo.file_url
         if (filePath.startsWith('/')) filePath = filePath.substring(1)
         if (!filePath.startsWith('photos/')) filePath = `photos/${filePath}`
 
+        console.log(`🔗 處理後的檔案路徑: ${filePath}`)
+
         const { data: fileData, error: downloadError } = await supabase.storage
           .from('uploads')
           .download(filePath)
 
         if (downloadError) {
-          console.error(`下載照片 ${photo.filename} 失敗:`, downloadError)
+          console.error(`❌ 下載照片 ${photo.filename} 失敗:`, downloadError)
           errorCount++
           return
         }
 
+        console.log(`✅ 從 Storage 下載成功:`, photo.filename, 'size:', fileData.size)
+
         const arrayBuffer = await fileData.arrayBuffer()
+        console.log(`📦 ArrayBuffer 大小:`, arrayBuffer.byteLength)
         
         // 確保檔名是唯一的，如果有重複則加上編號
         let filename = photo.filename || `photo_${photo.id}.jpg`
@@ -100,10 +106,10 @@ export async function POST(request: NextRequest) {
 
         zip.file(filename, arrayBuffer)
         successCount++
-        console.log(`成功加入 ZIP: ${filename}`)
+        console.log(`✅ 成功加入 ZIP: ${filename}`)
 
       } catch (error) {
-        console.error(`處理照片 ${photo.filename} 時發生錯誤:`, error)
+        console.error(`❌ 處理照片 ${photo.filename} 時發生錯誤:`, error)
         errorCount++
       }
     })
@@ -129,9 +135,13 @@ export async function POST(request: NextRequest) {
         'Content-Disposition': `attachment; filename="${filename}"`
       }
     })
-
   } catch (error) {
-    console.error('批次下載照片失敗：', error)
-    return NextResponse.json({ error: '批次下載失敗' }, { status: 500 })
+    console.error('❌ 批次下載照片失敗：', error)
+    console.error('錯誤堆疊:', error instanceof Error ? error.stack : 'No stack trace')
+    return NextResponse.json({ 
+      error: '批次下載失敗', 
+      details: error instanceof Error ? error.message : '未知錯誤',
+      timestamp: new Date().toISOString()
+    }, { status: 500 })
   }
 }

@@ -76,7 +76,6 @@ export default function FilesViewPage() {
     endDate: '',
   })
   const [selectedCsvs, setSelectedCsvs] = useState<string[]>([])
-
   // 調試：檢查 bucket 檔案
   const checkBucketFiles = async () => {
     try {
@@ -87,6 +86,48 @@ export default function FilesViewPage() {
     } catch (error) {
       console.error('檢查 bucket 失敗：', error)
       setError('檢查 bucket 失敗')
+    }
+  }
+
+  // 測試下載功能
+  const testDownload = async () => {
+    try {
+      console.log('開始測試下載...')
+      const response = await fetch('/api/test-download')
+      
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'test.txt'
+        a.click()
+        window.URL.revokeObjectURL(url)
+        console.log('✅ 測試下載成功')
+      } else {
+        console.error('❌ 測試下載失敗')
+      }
+    } catch (error) {
+      console.error('測試下載錯誤:', error)
+    }
+  }
+
+  // 測試 POST API
+  const testPostAPI = async () => {
+    try {
+      console.log('開始測試 POST API...')
+      const response = await fetch('/api/test-download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ test: 'data', photoIds: ['1', '2'] })
+      })
+      
+      const result = await response.json()
+      console.log('POST API 測試結果:', result)
+      alert(`POST API 測試結果: ${JSON.stringify(result)}`)
+    } catch (error) {
+      console.error('POST API 測試錯誤:', error)
+      alert(`POST API 測試失敗: ${error}`)
     }
   }
   // 載入測站清單
@@ -184,10 +225,9 @@ export default function FilesViewPage() {
     if (selectedPhotos.length === 0) {
       alert('請選擇要下載的照片')
       return
-    }
-
-    try {
-      console.log('開始批次下載，選中的照片 ID:', selectedPhotos)
+    }    try {
+      console.log('=== 前端開始批次下載 ===')
+      console.log('選中的照片 ID:', selectedPhotos)
       
       const response = await fetch('/api/download/photos', {
         method: 'POST',
@@ -195,8 +235,12 @@ export default function FilesViewPage() {
         body: JSON.stringify({ photoIds: selectedPhotos })
       })
 
+      console.log('API 回應狀態:', response.status)
+      console.log('API 回應標頭:', Object.fromEntries(response.headers.entries()))
+
       if (!response.ok) {
         const errorData = await response.json()
+        console.error('API 錯誤回應:', errorData)
         throw new Error(errorData.error || `HTTP ${response.status}`)
       }
 
@@ -234,14 +278,18 @@ export default function FilesViewPage() {
         document.body.removeChild(a)
         window.URL.revokeObjectURL(url)
         
-        console.log('下載完成:', filename)
+        console.log('✅ 下載完成:', filename)
         alert(`成功下載 ${selectedPhotos.length} 張照片！`)
-      } else {
+      } else if (contentType?.includes('application/json')) {
         // 可能是 JSON 錯誤回應
         const errorData = await response.json()
+        console.error('JSON 錯誤回應:', errorData)
         throw new Error(errorData.error || '下載失敗')
+      } else {
+        console.error('未知的內容類型:', contentType)
+        throw new Error(`不支援的回應類型: ${contentType}`)
       }    } catch (error) {
-      console.error('下載錯誤：', error)
+      console.error('❌ 下載錯誤：', error)
       const errorMessage = error instanceof Error ? error.message : '未知錯誤'
       alert(`下載失敗：${errorMessage}`)
     }
@@ -343,13 +391,24 @@ export default function FilesViewPage() {
               </div>
             )}            {/* 調試區域 */}
             <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded">
-              <h3 className="font-semibold mb-2">調試工具</h3>
-              <div className="flex gap-2 mb-2">
+              <h3 className="font-semibold mb-2">調試工具</h3>              <div className="flex gap-2 mb-2">
                 <button
                   onClick={checkBucketFiles}
                   className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm"
                 >
                   檢查 Bucket 檔案
+                </button>
+                <button
+                  onClick={testDownload}
+                  className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm"
+                >
+                  測試下載
+                </button>
+                <button
+                  onClick={testPostAPI}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                >
+                  測試 POST API
                 </button>
               </div>
               {/* 顯示第一張照片的詳細資訊 */}
