@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
 
 // 型別定義
 type PhotoRecord = {
@@ -443,11 +442,9 @@ export default function FilesViewPage() {
                           />
                         </td>                        <td className="p-3">
                           <div className="relative w-16 h-16 bg-gray-100 rounded border border-gray-200 flex items-center justify-center">
-                            <Image 
+                            <img 
                               src={photo.preview_url || photo.file_url} 
                               alt={photo.filename}
-                              width={64}
-                              height={64}
                               className="w-16 h-16 object-cover rounded"
                               onError={(e) => {
                                 console.error('圖片載入失敗:', {
@@ -468,7 +465,7 @@ export default function FilesViewPage() {
                                 }
                               }}
                               onLoad={() => {
-                                console.log('圖片載入成功:', photo.filename)
+                                console.log('表格圖片載入成功:', photo.filename)
                               }}
                               loading="lazy"
                             />
