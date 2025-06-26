@@ -358,7 +358,14 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
   const formatDate = (dateString: string): string => {
     if (!dateString) return '未知時間'
     try {
+      console.log('=== 日期轉換過程 ===')
+      console.log('輸入字串:', dateString)
+      
       const date = new Date(dateString)
+      console.log('Date 物件:', date)
+      console.log('UTC 時間:', date.toISOString())
+      console.log('本地時間:', date.toString())
+      
       // 轉換為台北時間，格式：MM/DD HH:mm
       const formatted = date.toLocaleString('zh-TW', {
         timeZone: 'Asia/Taipei',
@@ -368,8 +375,12 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
         minute: '2-digit',
         hour12: false
       })
-      // 將 "06/25 14:49:00" 格式調整為 "06/25 14:49"
-      return formatted.replace(/:\d{2}$/, '')
+      
+      console.log('台北時間格式化結果:', formatted)
+      console.log('========================')
+      
+      // 暫時不做格式調整，直接返回完整結果
+      return formatted
     } catch (error) {
       console.error('日期格式化錯誤:', error)
       return '時間格式錯誤'
