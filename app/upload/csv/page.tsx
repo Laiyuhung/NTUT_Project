@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 
 export default function CsvUploadPage() {
   const [file, setFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
   const [stations, setStations] = useState<string[]>([])
   const [form, setForm] = useState({
     station_name: '',
@@ -20,23 +21,41 @@ export default function CsvUploadPage() {
         }
       })
   }, [])
-
   const handleUpload = async () => {
     if (!file) return alert('請選擇 CSV 檔案')
+    if (uploading) return
 
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('station_name', form.station_name)
-    formData.append('upload_date', form.upload_date)
+    setUploading(true)
 
-    const res = await fetch('/api/upload-csv', {
-      method: 'POST',
-      body: formData,
-    })
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('station_name', form.station_name)
+      formData.append('upload_date', form.upload_date)
 
-    const result = await res.json()
-    if (res.ok) alert('✅ 上傳成功！')
-    else alert(`❌ 錯誤：${result.error}`)
+      const res = await fetch('/api/upload-csv', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const result = await res.json()
+      if (res.ok) {
+        alert('✅ 上傳成功！')
+        // 清除表格數據
+        setFile(null)
+        setForm({
+          station_name: '',
+          upload_date: '',
+        })
+      } else {
+        alert(`❌ 錯誤：${result.error}`)
+      }
+    } catch (error) {
+      alert('❌ 上傳失敗，請稍後再試')
+      console.error('Upload error:', error)
+    } finally {
+      setUploading(false)
+    }
   }
 
   return (
@@ -76,13 +95,12 @@ export default function CsvUploadPage() {
             onChange={(e) => setForm(f => ({ ...f, upload_date: e.target.value }))}
             className="w-full border rounded px-3 py-2"
           />
-        </div>
-
-        <button
+        </div>        <button
           onClick={handleUpload}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded"
+          disabled={uploading}
+          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-2 rounded"
         >
-          上傳
+          {uploading ? '上傳中...' : '上傳'}
         </button>
       </div>
     </main>

@@ -21,6 +21,7 @@ export default function PhotoUploadPage() {
   const [nearestFiveStations, setNearestFiveStations] = useState<{station: Station, distance: number}[]>([])
   const [stations, setStations] = useState<Station[]>([])
   const [locating, setLocating] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [activeTab, setActiveTab] = useState<'auto' | 'manual'>('auto')
   useEffect(() => {
     const utc = new Date()
@@ -113,22 +114,50 @@ export default function PhotoUploadPage() {
       })
       .catch(err => console.error('載入測站清單失敗：', err))
   }, [activeTab, findNearestStation])
-
   const handleUpload = async () => {
     if (!file) return alert('請選擇圖片')
+    if (uploading) return
 
-    const formData = new FormData()
-    Object.entries(form).forEach(([key, val]) => formData.append(key, val))
-    formData.append('file', file)
+    setUploading(true)
 
-    const res = await fetch('/api/upload-photo', {
-      method: 'POST',
-      body: formData,
-    })
+    try {
+      const formData = new FormData()
+      Object.entries(form).forEach(([key, val]) => formData.append(key, val))
+      formData.append('file', file)
 
-    const result = await res.json()
-    if (res.ok) alert('✅ 上傳成功！')
-    else alert(`❌ 錯誤：${result.error}`)
+      const res = await fetch('/api/upload-photo', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const result = await res.json()
+      if (res.ok) {
+        alert('✅ 上傳成功！')
+        // 清除表格數據
+        setFile(null)
+        setForm({
+          taken_at: '',
+          latitude: '',
+          longitude: '',
+          nearest_station: '',
+        })
+        setNearestStationDistance(null)
+        setNearestFiveStations([])
+        
+        // 重新設定時間
+        const utc = new Date()
+        utc.setHours(utc.getHours() + 8)
+        const taipeiTime = utc.toISOString().slice(0, 16)
+        setForm(f => ({ ...f, taken_at: taipeiTime }))
+      } else {
+        alert(`❌ 錯誤：${result.error}`)
+      }
+    } catch (error) {
+      alert('❌ 上傳失敗，請稍後再試')
+      console.error('Upload error:', error)
+    } finally {
+      setUploading(false)
+    }
   }
   const handleGetLocation = () => {
     if (stations.length === 0) {
@@ -282,13 +311,12 @@ export default function PhotoUploadPage() {
             <div className="text-xs text-gray-500 mt-1">
               支援拍照或選擇相簿圖片
             </div>
-          </div>
-
-          <button
+          </div>          <button
             onClick={handleUpload}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded text-sm sm:text-base"
+            disabled={uploading}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 rounded text-sm sm:text-base"
           >
-            上傳
+            {uploading ? '上傳中...' : '上傳'}
           </button>
         </div>
 
