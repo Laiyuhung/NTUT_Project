@@ -321,47 +321,73 @@ export default function PhotoUploadPage() {
         </div>
 
         {/* 最近測站區域 - 手機版在下方，桌面版在右側 */}
-        <div className="w-full lg:w-80 bg-white rounded-xl shadow-md p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-bold mb-4 text-center">最近測站</h3>
-          {nearestFiveStations.length > 0 ? (
-            <div className="space-y-3">
-              {nearestFiveStations.map((item, index) => (
-                <div
-                  key={item.station.station_name}
-                  className={`p-3 rounded-lg border ${
-                    index === 0 
-                      ? 'bg-blue-50 border-blue-300' 
-                      : 'bg-gray-50 border-gray-200'
-                  }`}
+        <div className="w-full lg:w-80 space-y-4">
+          {/* 測站資料確認提醒 */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+            <div className="flex items-start space-x-2">
+              <div className="text-yellow-600 text-lg flex-shrink-0">⚠️</div>
+              <div>
+                <h4 className="font-semibold text-yellow-800 text-sm mb-1">
+                  請確認測站資料
+                </h4>
+                <p className="text-yellow-700 text-xs leading-relaxed mb-2">
+                  測站位置可能有偏差，建議先至中央氣象署確認正確位置
+                </p>
+                <a 
+                  href="https://codis.cwa.gov.tw/StationData" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className={`font-medium text-sm sm:text-base ${index === 0 ? 'text-blue-800' : 'text-gray-800'}`}>
-                        {index === 0 && '🏆 '}{item.station.station_name}
+                  <span>📊 查看官方測站資料</span>
+                  <span className="text-xs">↗</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+            <h3 className="text-base sm:text-lg font-bold mb-4 text-center">最近測站</h3>
+            {nearestFiveStations.length > 0 ? (
+              <div className="space-y-3">
+                {nearestFiveStations.map((item, index) => (
+                  <div
+                    key={item.station.station_name}
+                    className={`p-3 rounded-lg border ${
+                      index === 0 
+                        ? 'bg-blue-50 border-blue-300' 
+                        : 'bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className={`font-medium text-sm sm:text-base ${index === 0 ? 'text-blue-800' : 'text-gray-800'}`}>
+                          {index === 0 && '🏆 '}{item.station.station_name}
+                        </div>
+                        <div className="text-xs sm:text-sm text-gray-600">
+                          距離: {item.distance.toFixed(2)} 公里
+                        </div>
+                        <div className="text-xs text-gray-500 truncate">
+                          ({item.station.latitude.toFixed(4)}, {item.station.longitude.toFixed(4)})
+                        </div>
                       </div>
-                      <div className="text-xs sm:text-sm text-gray-600">
-                        距離: {item.distance.toFixed(2)} 公里
+                      <div className={`text-base sm:text-lg font-bold ml-2 ${
+                        index === 0 ? 'text-blue-600' : 'text-gray-400'
+                      }`}>
+                        #{index + 1}
                       </div>
-                      <div className="text-xs text-gray-500 truncate">
-                        ({item.station.latitude.toFixed(4)}, {item.station.longitude.toFixed(4)})
-                      </div>
-                    </div>
-                    <div className={`text-base sm:text-lg font-bold ml-2 ${
-                      index === 0 ? 'text-blue-600' : 'text-gray-400'
-                    }`}>
-                      #{index + 1}
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center text-gray-500 py-8">
-              <div className="text-3xl sm:text-4xl mb-2">📍</div>
-              <div className="text-sm sm:text-base">尚未定位</div>
-              <div className="text-xs sm:text-sm">請先使用自動取得定位功能</div>
-            </div>
-          )}
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-gray-500 py-8">
+                <div className="text-3xl sm:text-4xl mb-2">📍</div>
+                <div className="text-sm sm:text-base">尚未定位</div>
+                <div className="text-xs sm:text-sm">請先使用自動取得定位功能</div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </main>
