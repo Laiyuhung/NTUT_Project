@@ -354,12 +354,13 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   } */  // 格式化日期 - 將 UTC 時間轉換為台北時間
+  // 例如: "2025-06-25T06:49:12.213662+00:00" -> "06/25 14:49"
   const formatDate = (dateString: string): string => {
     if (!dateString) return '未知時間'
     try {
       const date = new Date(dateString)
-      // 轉換為台北時間，不顯示年份和秒數，使用24小時制
-      return date.toLocaleString('zh-TW', {
+      // 轉換為台北時間，格式：MM/DD HH:mm
+      const formatted = date.toLocaleString('zh-TW', {
         timeZone: 'Asia/Taipei',
         month: '2-digit',
         day: '2-digit',
@@ -367,6 +368,8 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
         minute: '2-digit',
         hour12: false
       })
+      // 將 "06/25 14:49:00" 格式調整為 "06/25 14:49"
+      return formatted.replace(/:\d{2}$/, '')
     } catch (error) {
       console.error('日期格式化錯誤:', error)
       return '時間格式錯誤'
