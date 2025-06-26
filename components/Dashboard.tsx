@@ -26,6 +26,7 @@ export default function Dashboard() {
   const [csvData, setCsvData] = useState<CsvData[]>([])
   const [photoData, setPhotoData] = useState<PhotoData[]>([])
   const [loading, setLoading] = useState(true)
+  const [csvSectionExpanded, setCsvSectionExpanded] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -118,61 +119,91 @@ export default function Dashboard() {
   const maxDailyCount = Math.max(...photoDistribution.map(d => d.count), 1)
 
   return (
-    <div className="space-y-8">
-      {/* CSV資料登錄狀況 */}
-      <div className="bg-white rounded-xl shadow-md p-6">
-        <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-          📊 CSV資料登錄狀況 (最近7天)
-        </h3>
+    <div className="space-y-8">      {/* CSV資料登錄狀況 */}
+      <div className="bg-white rounded-xl shadow-md">
+        <div 
+          className="p-6 cursor-pointer hover:bg-gray-50 transition-colors duration-200"
+          onClick={() => setCsvSectionExpanded(!csvSectionExpanded)}
+        >
+          <h3 className="text-2xl font-bold text-gray-800 flex items-center justify-between">
+            <span className="flex items-center">
+              📊 CSV資料登錄狀況 (最近7天)
+            </span>
+            <svg 
+              className={`w-6 h-6 transform transition-transform duration-200 ${
+                csvSectionExpanded ? 'rotate-180' : ''
+              }`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </h3>
+          
+          {!csvSectionExpanded && (
+            <div className="mt-4">
+              <div className="flex items-center gap-4 text-sm text-gray-600">
+                <span>總測站數: {stations.length}</span>
+                <span>今日已上傳: {stations.filter(station => hasCsvData(station.station_name, last7Days[6])).length}</span>
+                <span>點擊展開詳細資訊</span>
+              </div>
+            </div>
+          )}
+        </div>
         
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b-2 border-gray-200">
-                <th className="text-left py-3 px-2 font-semibold text-gray-700">測站名稱</th>
-                {last7Days.map(date => (
-                  <th key={date} className="text-center py-3 px-2 font-semibold text-gray-700 min-w-[80px]">
-                    {date.split('-').slice(1).join('/')}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {stations.map(station => (
-                <tr key={station.station_name} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="py-3 px-2 font-medium text-gray-800">
-                    {station.station_name}
-                  </td>
-                  {last7Days.map(date => (
-                    <td key={`${station.station_name}-${date}`} className="text-center py-3 px-2">
-                      <div className={`w-6 h-6 rounded-full mx-auto ${
-                        hasCsvData(station.station_name, date) 
-                          ? 'bg-green-500' 
-                          : 'bg-red-300'
-                      }`} title={
-                        hasCsvData(station.station_name, date) 
-                          ? '已上傳資料' 
-                          : '未上傳資料'
-                      }>
-                      </div>
-                    </td>
+        {csvSectionExpanded && (
+          <div className="px-6 pb-6">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b-2 border-gray-200">
+                    <th className="text-left py-3 px-2 font-semibold text-gray-700">測站名稱</th>
+                    {last7Days.map(date => (
+                      <th key={date} className="text-center py-3 px-2 font-semibold text-gray-700 min-w-[80px]">
+                        {date.split('-').slice(1).join('/')}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {stations.map(station => (
+                    <tr key={station.station_name} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-2 font-medium text-gray-800">
+                        {station.station_name}
+                      </td>
+                      {last7Days.map(date => (
+                        <td key={`${station.station_name}-${date}`} className="text-center py-3 px-2">
+                          <div className={`w-6 h-6 rounded-full mx-auto ${
+                            hasCsvData(station.station_name, date) 
+                              ? 'bg-green-500' 
+                              : 'bg-red-300'
+                          }`} title={
+                            hasCsvData(station.station_name, date) 
+                              ? '已上傳資料' 
+                              : '未上傳資料'
+                          }>
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
                   ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        
-        <div className="mt-4 flex items-center gap-4 text-sm text-gray-600">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-green-500"></div>
-            <span>已上傳</span>
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="mt-4 flex items-center gap-4 text-sm text-gray-600">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-green-500"></div>
+                <span>已上傳</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-red-300"></div>
+                <span>未上傳</span>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-red-300"></div>
-            <span>未上傳</span>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* 照片分布狀況 */}
