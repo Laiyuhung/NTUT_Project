@@ -353,34 +353,40 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  } */  // 格式化日期 - 將 UTC 時間轉換為台北時間
-  // 例如: "2025-06-25T06:49:12.213662+00:00" -> "06/25 14:49"
+  } */  // 格式化日期 - 直接解析時間，不轉換時區
+  // 例如: "2025-06-26T18:07:00+00:00" -> "06/26 18:07"
   const formatDate = (dateString: string): string => {
     if (!dateString) return '未知時間'
     try {
       console.log('=== 日期轉換過程 ===')
       console.log('輸入字串:', dateString)
       
-      const date = new Date(dateString)
-      console.log('Date 物件:', date)
-      console.log('UTC 時間:', date.toISOString())
-      console.log('本地時間:', date.toString())
-      
-      // 轉換為台北時間，格式：MM/DD HH:mm
-      const formatted = date.toLocaleString('zh-TW', {
-        timeZone: 'Asia/Taipei',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      })
-      
-      console.log('台北時間格式化結果:', formatted)
-      console.log('========================')
-      
-      // 暫時不做格式調整，直接返回完整結果
-      return formatted
+      // 直接從字串中提取日期和時間部分
+      const match = dateString.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/)
+      if (match) {
+        const [, year, month, day, hour, minute] = match
+        const result = `${month}/${day} ${hour}:${minute}`
+        console.log('直接解析結果:', result)
+        console.log('========================')
+        return result
+      } else {
+        // 如果正則匹配失敗，回退到原來的方法
+        const date = new Date(dateString)
+        console.log('Date 物件:', date)
+        console.log('UTC 時間:', date.toISOString())
+        
+        const formatted = date.toLocaleString('zh-TW', {
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        })
+        
+        console.log('格式化結果:', formatted)
+        console.log('========================')
+        return formatted
+      }
     } catch (error) {
       console.error('日期格式化錯誤:', error)
       return '時間格式錯誤'
