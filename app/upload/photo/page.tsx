@@ -331,7 +331,7 @@ export default function PhotoUploadPage() {
                   請確認測站資料
                 </h4>
                 <p className="text-yellow-700 text-xs leading-relaxed mb-2">
-                  測站位置可能有偏差，建議先至中央氣象署確認正確位置
+                  自動定位可能有偏差，建議先至中央氣象署確認正確位置，再決定使用自動定位或手動選擇測站。
                 </p>
                 <a 
                   href="https://codis.cwa.gov.tw/StationData" 
