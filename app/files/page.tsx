@@ -364,7 +364,7 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
       // 直接從字串中提取日期和時間部分
       const match = dateString.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/)
       if (match) {
-        const [, year, month, day, hour, minute] = match
+        const [, , month, day, hour, minute] = match
         const result = `${month}/${day} ${hour}:${minute}`
         console.log('直接解析結果:', result)
         console.log('========================')
