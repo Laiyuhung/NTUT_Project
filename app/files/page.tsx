@@ -353,19 +353,19 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  } */// 格式化日期 - taken_at 本身就是台灣時間
+  } */  // 格式化日期 - 將 UTC 時間轉換為台北時間
   const formatDate = (dateString: string): string => {
     if (!dateString) return '未知時間'
     try {
       const date = new Date(dateString)
-      // 直接格式化，不需要指定時區
+      // 轉換為台北時間，不顯示年份和秒數，使用24小時制
       return date.toLocaleString('zh-TW', {
-        year: 'numeric',
+        timeZone: 'Asia/Taipei',
         month: '2-digit',
         day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
-        second: '2-digit'
+        hour12: false
       })
     } catch (error) {
       console.error('日期格式化錯誤:', error)
