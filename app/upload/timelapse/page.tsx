@@ -195,8 +195,16 @@ export default function TimelapseUploadPage() {
   // 啟動攝像頭
   const startCamera = async () => {
     try {
+      console.log('🎥 開始啟動攝像頭...')
+      
+      // 如果已有 stream，先停止舊的
       if (stream) {
-        stream.getTracks().forEach(track => track.stop())
+        console.log('停止舊的 stream')
+        stream.getTracks().forEach(track => {
+          console.log('停止軌道:', track.kind, track.id)
+          track.stop()
+        })
+        setStream(null)
       }
 
       const constraints = {
@@ -207,19 +215,36 @@ export default function TimelapseUploadPage() {
         }
       }
 
-      console.log('啟動攝像頭，設備ID:', selectedDevice)
+      console.log('🎥 啟動攝像頭，設備ID:', selectedDevice)
       console.log('約束條件:', constraints)
       
       const newStream = await navigator.mediaDevices.getUserMedia(constraints)
-      console.log('取得串流成功，軌道數量:', newStream.getVideoTracks().length)
+      console.log('✅ 取得串流成功')
+      console.log('Stream 狀態:', {
+        active: newStream.active,
+        tracks: newStream.getVideoTracks().map(track => ({
+          kind: track.kind,
+          enabled: track.enabled,
+          readyState: track.readyState,
+          id: track.id
+        }))
+      })
+      
+      // 立即檢查新 stream 是否活躍
+      if (!newStream.active) {
+        console.error('❌ 新建立的 stream 不是活躍狀態')
+        throw new Error('新建立的媒體流不是活躍狀態')
+      }
       
       setStream(newStream)
       
       if (videoRef.current) {
+        console.log('🎥 設定 video 元素...')
+        
         // 清除之前的srcObject
         videoRef.current.srcObject = null
         
-        // 等待一個微任務週期
+        // 等待清除完成
         await new Promise(resolve => setTimeout(resolve, 100))
         
         // 設定新的srcObject
@@ -232,21 +257,36 @@ export default function TimelapseUploadPage() {
         videoRef.current.autoplay = true
         
         // 監聽所有相關事件
-        videoRef.current.onloadstart = () => console.log('Video loadstart')
-        videoRef.current.onloadeddata = () => console.log('Video loadeddata')
-        videoRef.current.oncanplay = () => console.log('Video canplay')
-        videoRef.current.onplay = () => console.log('Video play')
-        videoRef.current.onerror = (e) => console.error('Video error:', e)
+        videoRef.current.onloadstart = () => console.log('📺 Video loadstart')
+        videoRef.current.onloadeddata = () => console.log('📺 Video loadeddata')
+        videoRef.current.oncanplay = () => console.log('📺 Video canplay')
+        videoRef.current.onplay = () => console.log('📺 Video play')
+        videoRef.current.onerror = (e) => console.error('📺 Video error:', e)
         
         // 等待metadata載入後播放
         videoRef.current.onloadedmetadata = async () => {
           try {
-            console.log('Video metadata loaded, 嘗試播放...')
-            console.log('Video 尺寸:', videoRef.current!.videoWidth, 'x', videoRef.current!.videoHeight)
+            console.log('📺 Video metadata loaded, 嘗試播放...')
+            console.log('📺 Video 尺寸:', videoRef.current!.videoWidth, 'x', videoRef.current!.videoHeight)
             await videoRef.current!.play()
-            console.log('攝像頭播放成功')
+            console.log('✅ 攝像頭播放成功')
+            
+            // 播放成功後再次檢查 stream 狀態
+            setTimeout(() => {
+              if (newStream) {
+                console.log('播放成功後 stream 狀態:', {
+                  active: newStream.active,
+                  tracks: newStream.getVideoTracks().map(track => ({
+                    kind: track.kind,
+                    enabled: track.enabled,
+                    readyState: track.readyState
+                  }))
+                })
+              }
+            }, 1000)
+            
           } catch (playError) {
-            console.error('metadata播放失敗:', playError)
+            console.error('❌ metadata播放失敗:', playError)
           }
         }
         
@@ -254,7 +294,7 @@ export default function TimelapseUploadPage() {
         try {
           videoRef.current.load()
         } catch (loadError) {
-          console.warn('load()失敗:', loadError)
+          console.warn('⚠️ load()失敗:', loadError)
         }
         
         // 延遲播放嘗試
@@ -262,15 +302,19 @@ export default function TimelapseUploadPage() {
           try {
             if (videoRef.current && videoRef.current.readyState >= 2) {
               await videoRef.current.play()
-              console.log('延遲播放成功')
+              console.log('✅ 延遲播放成功')
             }
           } catch (playError) {
-            console.warn('延遲播放失敗:', playError)
+            console.warn('⚠️ 延遲播放失敗:', playError)
           }
         }, 500)
       }
+      
+      console.log('🎥 攝像頭啟動流程完成')
+      
     } catch (error) {
-      console.error('啟動攝像頭失敗:', error)
+      console.error('❌ 啟動攝像頭失敗:', error)
+      setStream(null)
       const errorMessage = error instanceof Error ? error.message : '未知錯誤'
       alert(`❌ 無法啟動攝像頭：${errorMessage}\n\n請檢查：\n1. 瀏覽器權限設定\n2. 攝像頭是否被其他應用程式佔用\n3. 嘗試選擇其他攝像頭`)
     }
@@ -371,11 +415,35 @@ export default function TimelapseUploadPage() {
 
   // 拍攝照片
   const capturePhoto = async (): Promise<Blob | null> => {
+    console.log('🎯 開始拍攝照片...')
+    
+    // 檢查 stream 狀態
+    if (!stream) {
+      console.error('❌ 無法拍攝：沒有 stream')
+      alert('請先啟動攝像頭')
+      return null
+    }
+    
+    if (!stream.active) {
+      console.error('❌ 無法拍攝：stream 不是活躍狀態')
+      console.log('當前 stream 狀態:', {
+        active: stream.active,
+        tracks: stream.getVideoTracks().map(track => ({
+          kind: track.kind,
+          enabled: track.enabled,
+          readyState: track.readyState
+        }))
+      })
+      alert('攝像頭不活躍，正在重新啟動...')
+      await startCamera()
+      return null
+    }
+    
     // 優先使用錄製階段的video，如果不存在則使用主video
     const activeVideo = videoRef.current
     
     if (!activeVideo || !canvasRef.current) {
-      console.error('Video element 或 canvas element 不存在')
+      console.error('❌ Video element 或 canvas element 不存在')
       return null
     }
 
@@ -384,13 +452,19 @@ export default function TimelapseUploadPage() {
     const ctx = canvas.getContext('2d')
     
     if (!ctx) {
-      console.error('無法取得canvas context')
+      console.error('❌ 無法取得canvas context')
       return null
     }
 
     // 檢查video是否有有效尺寸
     if (video.videoWidth === 0 || video.videoHeight === 0) {
-      console.error('Video 尺寸無效:', video.videoWidth, 'x', video.videoHeight)
+      console.error('❌ Video 尺寸無效:', video.videoWidth, 'x', video.videoHeight)
+      console.log('Video 狀態:', {
+        paused: video.paused,
+        ended: video.ended,
+        readyState: video.readyState,
+        srcObject: !!video.srcObject
+      })
       return null
     }
 
@@ -398,21 +472,61 @@ export default function TimelapseUploadPage() {
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
     
-    console.log('拍攝照片，video尺寸:', video.videoWidth, 'x', video.videoHeight)
+    console.log('✅ 拍攝照片，video尺寸:', video.videoWidth, 'x', video.videoHeight)
     
     // 繪製當前影像
     ctx.drawImage(video, 0, 0)
     
     // 轉換為 Blob
     return new Promise((resolve) => {
-      canvas.toBlob(resolve, 'image/jpeg', 0.8)
+      canvas.toBlob((blob) => {
+        if (blob) {
+          console.log('📸 拍攝成功，blob大小:', blob.size)
+          
+          // 拍攝後檢查 stream 狀態
+          setTimeout(() => {
+            if (stream) {
+              console.log('拍攝後 stream 狀態:', {
+                active: stream.active,
+                tracks: stream.getVideoTracks().map(track => ({
+                  kind: track.kind,
+                  enabled: track.enabled,
+                  readyState: track.readyState
+                }))
+              })
+              
+              if (!stream.active) {
+                console.warn('⚠️ 拍攝後發現 stream 不活躍')
+              }
+            }
+          }, 100)
+          
+          resolve(blob)
+        } else {
+          console.error('❌ 拍攝失敗：無法建立 blob')
+          resolve(null)
+        }
+      }, 'image/jpeg', 0.8)
     })
   }
 
   // 上傳照片
   const uploadPhoto = async (blob: Blob, captureTime: Date) => {
     try {
+      console.log('📤 開始上傳照片...')
       setUploading(true)
+
+      // 上傳前檢查 stream 狀態
+      if (stream) {
+        console.log('上傳前 stream 狀態:', {
+          active: stream.active,
+          tracks: stream.getVideoTracks().map(track => ({
+            kind: track.kind,
+            enabled: track.enabled,
+            readyState: track.readyState
+          }))
+        })
+      }
 
       const formData = new FormData()
       formData.append('latitude', form.latitude)
@@ -441,8 +555,29 @@ export default function TimelapseUploadPage() {
       } else {
         console.error(`❌ 第 ${recordCount + 1} 張照片上傳失敗：${result.error}`)
       }
+      
+      // 上傳後檢查 stream 狀態
+      setTimeout(() => {
+        if (stream) {
+          console.log('上傳後 stream 狀態:', {
+            active: stream.active,
+            tracks: stream.getVideoTracks().map(track => ({
+              kind: track.kind,
+              enabled: track.enabled,
+              readyState: track.readyState
+            }))
+          })
+          
+          // 如果 stream 不活躍，嘗試重新啟動
+          if (!stream.active) {
+            console.warn('⚠️ 上傳後發現 stream 不活躍，重新啟動攝像頭')
+            startCamera()
+          }
+        }
+      }, 500)
+      
     } catch (error) {
-      console.error('上傳照片失敗:', error)
+      console.error('❌ 上傳照片失敗:', error)
     } finally {
       setUploading(false)
     }
@@ -450,14 +585,32 @@ export default function TimelapseUploadPage() {
 
   // 開始定時拍攝
   const startRecording = () => {
+    console.log('🎬 準備開始定時拍攝...')
+    
     if (!stream) {
       alert('❌ 請先啟動攝像頭')
       return
     }
+    
+    if (!stream.active) {
+      console.error('❌ Stream 不是活躍狀態')
+      alert('攝像頭不活躍，請重新啟動攝像頭')
+      return
+    }
+    
     if (!form.nearest_station) {
       alert('❌ 請先確認測站資料')
       return
     }
+
+    console.log('🎬 開始定時拍攝，當前 stream 狀態:', {
+      active: stream.active,
+      tracks: stream.getVideoTracks().map(track => ({
+        kind: track.kind,
+        enabled: track.enabled,
+        readyState: track.readyState
+      }))
+    })
 
     setIsRecording(true)
     setRecordCount(0)
@@ -474,8 +627,11 @@ export default function TimelapseUploadPage() {
     }
     setNextCaptureTime(nextTime)
 
+    console.log('⏰ 下次拍攝時間:', nextTime.toLocaleString())
+
     // 立即拍攝第一張
     setTimeout(async () => {
+      console.log('📸 開始第一次拍攝...')
       const blob = await capturePhoto()
       if (blob) {
         await uploadPhoto(blob, new Date())
@@ -500,12 +656,34 @@ export default function TimelapseUploadPage() {
 
   // 停止拍攝
   const stopRecording = () => {
+    console.log('⏹️ 停止定時拍攝')
+    
     setIsRecording(false)
     if (interval) {
       clearInterval(interval)
       setIntervalState(null)
     }
     setNextCaptureTime(null)
+    
+    // 停止拍攝後檢查 stream 狀態（不停止 stream，只停止拍攝）
+    if (stream) {
+      console.log('停止拍攝後 stream 狀態:', {
+        active: stream.active,
+        tracks: stream.getVideoTracks().map(track => ({
+          kind: track.kind,
+          enabled: track.enabled,
+          readyState: track.readyState
+        }))
+      })
+      
+      // 如果 stream 意外不活躍，可選擇重新啟動
+      if (!stream.active) {
+        console.warn('⚠️ 停止拍攝時發現 stream 不活躍')
+        // 不自動重啟，讓用戶手動決定
+      }
+    }
+    
+    console.log('✅ 定時拍攝已停止，攝像頭保持運行')
   }
 
   // 清理資源
@@ -520,12 +698,107 @@ export default function TimelapseUploadPage() {
     }
   }, [stream, interval])
 
+  // 監控 stream 狀態並自動重啟
+  useEffect(() => {
+    if (stream) {
+      console.log('設定 stream 狀態監控')
+      console.log('初始 stream 狀態:', {
+        active: stream.active,
+        tracks: stream.getVideoTracks().map(track => ({
+          kind: track.kind,
+          enabled: track.enabled,
+          readyState: track.readyState,
+          id: track.id
+        }))
+      })
+      
+      // 監聽 stream 狀態變化
+      const handleStreamInactive = () => {
+        console.warn('🚨 Stream 變為非活躍狀態！')
+        console.log('當前 stream 狀態:', {
+          active: stream.active,
+          tracks: stream.getVideoTracks().map(track => ({
+            kind: track.kind,
+            enabled: track.enabled,
+            readyState: track.readyState
+          }))
+        })
+        
+        // 自動重新啟動攝像頭
+        setTimeout(() => {
+          console.log('嘗試自動重新啟動攝像頭...')
+          startCamera()
+        }, 1000)
+      }
+      
+      const handleStreamActive = () => {
+        console.log('✅ Stream 變為活躍狀態')
+      }
+      
+      // 監聽軌道變化
+      const handleTrackEnded = (event: Event) => {
+        console.warn('🚨 軌道結束:', event)
+        const track = event.target as MediaStreamTrack
+        console.log('結束的軌道:', {
+          kind: track.kind,
+          readyState: track.readyState,
+          id: track.id
+        })
+        
+        // 如果是video軌道結束，重新啟動攝像頭
+        if (track.kind === 'video') {
+          setTimeout(() => {
+            console.log('Video軌道結束，重新啟動攝像頭...')
+            startCamera()
+          }, 1000)
+        }
+      }
+      
+      // 設定事件監聽器
+      stream.addEventListener('inactive', handleStreamInactive)
+      stream.addEventListener('active', handleStreamActive)
+      
+      // 監聽每個軌道的狀態
+      stream.getVideoTracks().forEach(track => {
+        track.addEventListener('ended', handleTrackEnded)
+        console.log('軌道狀態監控已設定:', track.id)
+      })
+      
+      // 定期檢查 stream 狀態
+      const statusCheck = setInterval(() => {
+        if (stream.active === false) {
+          console.warn('⚠️ 定期檢查發現 stream 非活躍')
+          clearInterval(statusCheck)
+          handleStreamInactive()
+        }
+      }, 5000) // 每5秒檢查一次
+      
+      // 清理函數
+      return () => {
+        console.log('清理 stream 監控器')
+        stream.removeEventListener('inactive', handleStreamInactive)
+        stream.removeEventListener('active', handleStreamActive)
+        stream.getVideoTracks().forEach(track => {
+          track.removeEventListener('ended', handleTrackEnded)
+        })
+        clearInterval(statusCheck)
+      }
+    }
+  }, [stream])
+
   // 自動設定攝像頭給錄製階段的video元素
   useEffect(() => {
     if (stream && videoRef.current) {
       console.log('自動設定錄製階段video stream')
-      console.log('當前stream狀態:', stream)
-      console.log('stream tracks:', stream.getVideoTracks())
+      console.log('當前stream狀態:', {
+        active: stream.active,
+        tracks: stream.getVideoTracks().map(track => ({
+          kind: track.kind,
+          enabled: track.enabled,
+          readyState: track.readyState,
+          id: track.id
+        }))
+      })
       
       const setupRecordingVideo = async () => {
         // 等待 DOM 更新
@@ -540,6 +813,13 @@ export default function TimelapseUploadPage() {
         console.log('開始設定錄製階段video元素')
         
         try {
+          // 檢查 stream 是否仍然活躍
+          if (!stream.active) {
+            console.warn('⚠️ Stream 不是活躍狀態，嘗試重新啟動攝像頭')
+            startCamera()
+            return
+          }
+          
           // 直接設定stream
           videoElement.srcObject = stream
           videoElement.muted = true
