@@ -523,7 +523,8 @@ export default function TimelapseUploadPage() {
       console.log('當前stream狀態:', stream)
       console.log('stream tracks:', stream.getVideoTracks())
       
-      const setupRecordingVideo = () => {
+      // 使用 requestAnimationFrame 確保在下一個渲染週期執行
+      requestAnimationFrame(() => {
         const videoElement = recordingVideoRef.current
         if (!videoElement) {
           console.error('拍攝階段 - recordingVideoRef不存在')
@@ -532,7 +533,7 @@ export default function TimelapseUploadPage() {
         
         console.log('拍攝階段 - 開始設定video元素')
         
-        // 直接設定stream，不延遲
+        // 直接設定stream
         videoElement.srcObject = stream
         videoElement.muted = true
         videoElement.playsInline = true
@@ -548,13 +549,7 @@ export default function TimelapseUploadPage() {
             console.log('Video尺寸:', videoElement.videoWidth, 'x', videoElement.videoHeight)
           } catch (error) {
             console.error('拍攝階段 - video播放失敗:', error)
-            // 立即重試，不延遲
-            try {
-              await videoElement.play()
-              console.log('拍攝階段 - 重試播放成功')
-            } catch (e) {
-              console.warn('拍攝階段 - 重試播放失敗:', e)
-            }
+            console.log('將在metadata載入後重試')
           }
         }
         
@@ -575,18 +570,12 @@ export default function TimelapseUploadPage() {
           console.error('拍攝階段 - video error:', e)
         }
         
-        // 立即嘗試播放（如果metadata已經載入）
-        if (videoElement.readyState >= 2) {
-          console.log('拍攝階段 - metadata已載入，立即播放')
-          playVideo()
-        } else {
-          // 強制載入以觸發事件
-          videoElement.load()
-        }
-      }
-      
-      // 立即執行，不延遲
-      setupRecordingVideo()
+        // 強制載入以觸發事件
+        videoElement.load()
+        
+        // 立即嘗試播放
+        playVideo()
+      })
     }
   }, [isSetup, stream])
 
@@ -827,12 +816,43 @@ export default function TimelapseUploadPage() {
                 <canvas ref={canvasRef} className="hidden" />
                 
                 {/* 無畫面時的提示 */}
-                {stream && (!recordingVideoRef.current?.videoWidth || recordingVideoRef.current?.videoWidth === 0) && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 text-white">
+                {(!recordingVideoRef.current?.videoWidth || recordingVideoRef.current?.videoWidth === 0) && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-90 text-white">
                     <div className="text-center">
-                      <div className="text-4xl mb-2">📷</div>
-                      <div className="text-lg mb-2">載入攝像頭中...</div>
-                      <div className="text-sm text-gray-300">如果持續沒有畫面，請點擊重新連接攝像頭</div>
+                      <div className="text-6xl mb-4">📷</div>
+                      <div className="text-xl mb-4">沒有攝像頭畫面</div>
+                      <div className="text-sm text-gray-300 mb-6">點擊下方按鈕手動啟動攝像頭</div>
+                      <button
+                        onClick={async () => {
+                          console.log('無畫面提示 - 手動啟動攝像頭')
+                          const video = recordingVideoRef.current
+                          if (video && stream) {
+                            try {
+                              console.log('重新設定攝像頭...')
+                              
+                              // 直接設定stream
+                              video.srcObject = stream
+                              video.muted = true
+                              video.playsInline = true
+                              video.autoplay = true
+                              
+                              // 強制載入並播放
+                              video.load()
+                              
+                              await video.play()
+                              console.log('攝像頭重新啟動成功')
+                            } catch (error) {
+                              console.error('攝像頭重新啟動失敗:', error)
+                              alert('❌ 攝像頭啟動失敗，請檢查設備')
+                            }
+                          } else {
+                            alert('❌ 沒有可用的攝像頭串流，請回到設定階段重新啟動攝像頭')
+                          }
+                        }}
+                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold"
+                      >
+                        🚀 啟動攝像頭
+                      </button>
                     </div>
                   </div>
                 )}
@@ -929,6 +949,40 @@ export default function TimelapseUploadPage() {
               <div className="bg-white rounded-xl shadow-md p-6">
                 <h3 className="text-lg font-bold mb-4">拍攝控制</h3>
                 
+                {/* 手動啟動攝像頭按鈕 */}
+                <button
+                  onClick={async () => {
+                    console.log('手動啟動拍攝階段攝像頭')
+                    const video = recordingVideoRef.current
+                    if (video && stream) {
+                      try {
+                        console.log('設定拍攝階段攝像頭...')
+                        
+                        // 直接設定stream
+                        video.srcObject = stream
+                        video.muted = true
+                        video.playsInline = true
+                        video.autoplay = true
+                        
+                        // 強制載入並播放
+                        video.load()
+                        
+                        await video.play()
+                        console.log('拍攝階段攝像頭啟動成功')
+                        alert('✅ 攝像頭已啟動')
+                      } catch (error) {
+                        console.error('拍攝階段攝像頭啟動失敗:', error)
+                        alert('❌ 攝像頭啟動失敗，請重試')
+                      }
+                    } else {
+                      alert('❌ 沒有可用的攝像頭串流，請回到設定階段重新啟動攝像頭')
+                    }
+                  }}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded text-sm mb-3"
+                >
+                  📹 手動啟動攝像頭
+                </button>
+                
                 {!isRecording ? (
                   <button
                     onClick={startRecording}
@@ -948,6 +1002,21 @@ export default function TimelapseUploadPage() {
                 <div className="mt-4 text-sm text-gray-600">
                   拍攝間隔：每 15 分鐘
                 </div>
+                
+                {/* 返回設定按鈕 */}
+                <button
+                  onClick={() => {
+                    if (isRecording) {
+                      alert('⚠️ 請先停止拍攝才能返回設定')
+                      return
+                    }
+                    setIsSetup(false)
+                  }}
+                  disabled={isRecording}
+                  className="w-full bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-2 rounded text-sm mt-3"
+                >
+                  ⚙️ 返回設定
+                </button>
                 
                 {/* 攝像頭重連按鈕 */}
                 <button
