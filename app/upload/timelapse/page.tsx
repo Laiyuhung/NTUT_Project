@@ -216,18 +216,63 @@ export default function TimelapseUploadPage() {
       setStream(newStream)
       if (videoRef.current) {
         videoRef.current.srcObject = newStream
-        // 確保影片開始播放
+        
+        // 強制設定video元素屬性
+        videoRef.current.muted = true
+        videoRef.current.playsInline = true
+        videoRef.current.autoplay = true
+        
+        // 等待metadata載入後播放
+        videoRef.current.onloadedmetadata = async () => {
+          try {
+            await videoRef.current!.play()
+            console.log('攝像頭啟動成功，影片尺寸:', videoRef.current!.videoWidth, 'x', videoRef.current!.videoHeight)
+          } catch (playError) {
+            console.warn('自動播放失敗:', playError)
+            // 如果自動播放失敗，顯示提示要求用戶點擊
+            alert('⚠️ 需要點擊播放按鈕來啟動影片預覽')
+          }
+        }
+        
+        // 立即嘗試播放
         try {
           await videoRef.current.play()
-          console.log('攝像頭啟動成功')
+          console.log('攝像頭立即播放成功')
         } catch (playError) {
-          console.warn('自動播放失敗，可能需要用戶互動:', playError)
+          console.warn('立即播放失敗，等待metadata載入:', playError)
         }
       }
     } catch (error) {
       console.error('啟動攝像頭失敗:', error)
       const errorMessage = error instanceof Error ? error.message : '未知錯誤'
       alert(`❌ 無法啟動攝像頭：${errorMessage}\n\n請檢查：\n1. 瀏覽器權限設定\n2. 攝像頭是否被其他應用程式佔用\n3. 嘗試選擇其他攝像頭`)
+    }
+  }
+
+  // 測試拍攝功能
+  const testCapture = async () => {
+    if (!stream || !videoRef.current) {
+      alert('❌ 請先啟動攝像頭')
+      return
+    }
+
+    try {
+      const blob = await capturePhoto()
+      if (blob) {
+        // 建立預覽URL
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `test_capture_${Date.now()}.jpg`
+        link.click()
+        URL.revokeObjectURL(url)
+        alert('✅ 測試拍攝成功！照片已下載')
+      } else {
+        alert('❌ 測試拍攝失敗')
+      }
+    } catch (error) {
+      console.error('測試拍攝失敗:', error)
+      alert('❌ 測試拍攝時發生錯誤')
     }
   }
 
@@ -427,15 +472,27 @@ export default function TimelapseUploadPage() {
                 {devices.length === 0 ? '沒有可用攝像頭' : '啟動攝像頭'}
               </button>
 
+              {/* 測試拍攝按鈕 */}
+              {stream && (
+                <button
+                  onClick={testCapture}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded text-sm"
+                >
+                  📸 測試拍攝 (下載照片)
+                </button>
+              )}
+
               {/* 攝像頭預覽 */}
-              <div className="relative">
+              <div className="relative bg-black rounded-lg overflow-hidden" style={{ height: '300px' }}>
                 <video
                   ref={videoRef}
                   autoPlay
                   playsInline
                   muted
-                  className="w-full rounded-lg border"
-                  style={{ maxHeight: '300px' }}
+                  className="w-full h-full object-cover"
+                  onCanPlay={() => console.log('Video can play')}
+                  onPlay={() => console.log('Video is playing')}
+                  onError={(e) => console.error('Video error:', e)}
                 />
                 <canvas ref={canvasRef} className="hidden" />
                 
@@ -446,6 +503,24 @@ export default function TimelapseUploadPage() {
                       <div className="text-sm">點擊「啟動攝像頭」開始預覽</div>
                     </div>
                   </div>
+                )}
+                
+                {stream && (
+                  <div className="absolute bottom-2 left-2 bg-green-600 text-white px-2 py-1 rounded text-xs flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                    <span>預覽中</span>
+                  </div>
+                )}
+                
+                {/* 手動播放按鈕 - 當自動播放失敗時顯示 */}
+                {stream && (
+                  <button
+                    onClick={() => videoRef.current?.play()}
+                    className="absolute inset-0 w-full h-full flex items-center justify-center bg-black bg-opacity-50 text-white opacity-0 hover:opacity-100 transition-opacity"
+                    title="點擊播放影片"
+                  >
+                    <div className="text-4xl">▶️</div>
+                  </button>
                 )}
               </div>
             </div>
@@ -522,18 +597,21 @@ export default function TimelapseUploadPage() {
                 </div>
               </div>
               
-              <div className="relative">
+              <div className="relative bg-black rounded-lg overflow-hidden" style={{ minHeight: '400px' }}>
                 <video
                   ref={videoRef}
                   autoPlay
                   playsInline
                   muted
-                  className="w-full rounded-lg border"
+                  className="w-full h-full object-cover"
+                  onCanPlay={() => console.log('拍攝階段 Video can play')}
+                  onPlay={() => console.log('拍攝階段 Video is playing')}
+                  onError={(e) => console.error('拍攝階段 Video error:', e)}
                 />
                 <canvas ref={canvasRef} className="hidden" />
                 
                 {/* 攝像頭資訊疊加 */}
-                <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
+                <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-xs">
                   {devices.find(d => d.deviceId === selectedDevice)?.label || '攝像頭'}
                 </div>
                 
@@ -542,6 +620,14 @@ export default function TimelapseUploadPage() {
                   <div className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded text-xs flex items-center space-x-1">
                     <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
                     <span>錄製中</span>
+                  </div>
+                )}
+                
+                {/* 串流狀態指示 */}
+                {stream && (
+                  <div className="absolute bottom-2 left-2 bg-green-600 text-white px-2 py-1 rounded text-xs flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                    <span>直播中</span>
                   </div>
                 )}
               </div>
