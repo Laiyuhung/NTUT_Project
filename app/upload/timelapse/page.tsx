@@ -89,14 +89,39 @@ export default function TimelapseUploadPage() {
   useEffect(() => {
     const getDevices = async () => {
       try {
+        // 先請求攝像頭權限，這樣才能取得有意義的設備標籤
+        await navigator.mediaDevices.getUserMedia({ video: true })
+          .then(stream => {
+            // 取得權限後立即停止，因為只是為了取得設備清單
+            stream.getTracks().forEach(track => track.stop())
+          })
+        
         const devices = await navigator.mediaDevices.enumerateDevices()
         const videoDevices = devices.filter(device => device.kind === 'videoinput')
+        console.log('找到攝像頭:', videoDevices.length, '個')
+        videoDevices.forEach((device, index) => {
+          console.log(`攝像頭 ${index + 1}:`, device.label || `未知設備 ${device.deviceId.slice(0, 8)}`)
+        })
+        
         setDevices(videoDevices)
         if (videoDevices.length > 0) {
           setSelectedDevice(videoDevices[0].deviceId)
         }
       } catch (error) {
         console.error('取得攝像頭清單失敗:', error)
+        // 即使失敗也嘗試取得基本設備清單
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices()
+          const videoDevices = devices.filter(device => device.kind === 'videoinput')
+          console.log('無權限狀態下找到攝像頭:', videoDevices.length, '個')
+          setDevices(videoDevices)
+          if (videoDevices.length > 0) {
+            setSelectedDevice(videoDevices[0].deviceId)
+          }
+        } catch (err) {
+          console.error('完全無法取得設備清單:', err)
+          alert('❌ 無法存取攝像頭，請檢查瀏覽器權限')
+        }
       }
     }
     getDevices()
@@ -142,6 +167,32 @@ export default function TimelapseUploadPage() {
     )
   }
 
+  // 重新整理攝像頭清單
+  const refreshDevices = async () => {
+    try {
+      // 先請求權限
+      await navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+          stream.getTracks().forEach(track => track.stop())
+        })
+      
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      const videoDevices = devices.filter(device => device.kind === 'videoinput')
+      console.log('重新整理後找到攝像頭:', videoDevices.length, '個')
+      
+      setDevices(videoDevices)
+      
+      if (videoDevices.length > 0 && !selectedDevice) {
+        setSelectedDevice(videoDevices[0].deviceId)
+      }
+      
+      alert(`✅ 找到 ${videoDevices.length} 個攝像頭`)
+    } catch (error) {
+      console.error('重新整理攝像頭清單失敗:', error)
+      alert('❌ 無法重新整理攝像頭清單，請檢查瀏覽器權限')
+    }
+  }
+
   // 啟動攝像頭
   const startCamera = async () => {
     try {
@@ -149,21 +200,34 @@ export default function TimelapseUploadPage() {
         stream.getTracks().forEach(track => track.stop())
       }
 
-      const newStream = await navigator.mediaDevices.getUserMedia({
+      const constraints = {
         video: { 
           deviceId: selectedDevice ? { exact: selectedDevice } : undefined,
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
+          width: { ideal: 1920, min: 640 },
+          height: { ideal: 1080, min: 480 }
         }
-      })
+      }
+
+      console.log('啟動攝像頭，設備ID:', selectedDevice)
+      console.log('約束條件:', constraints)
+      
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints)
       
       setStream(newStream)
       if (videoRef.current) {
         videoRef.current.srcObject = newStream
+        // 確保影片開始播放
+        try {
+          await videoRef.current.play()
+          console.log('攝像頭啟動成功')
+        } catch (playError) {
+          console.warn('自動播放失敗，可能需要用戶互動:', playError)
+        }
       }
     } catch (error) {
       console.error('啟動攝像頭失敗:', error)
-      alert('❌ 無法啟動攝像頭，請檢查權限設定')
+      const errorMessage = error instanceof Error ? error.message : '未知錯誤'
+      alert(`❌ 無法啟動攝像頭：${errorMessage}\n\n請檢查：\n1. 瀏覽器權限設定\n2. 攝像頭是否被其他應用程式佔用\n3. 嘗試選擇其他攝像頭`)
     }
   }
 
@@ -320,25 +384,47 @@ export default function TimelapseUploadPage() {
               <h2 className="text-xl font-bold">攝像頭設定</h2>
               
               <div>
-                <label className="block font-medium mb-2">選擇攝像頭</label>
-                <select
-                  value={selectedDevice}
-                  onChange={(e) => setSelectedDevice(e.target.value)}
-                  className="w-full border rounded px-3 py-2"
-                >
-                  {devices.map(device => (
-                    <option key={device.deviceId} value={device.deviceId}>
-                      {device.label || `攝像頭 ${device.deviceId.slice(0, 8)}`}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block font-medium">選擇攝像頭</label>
+                  <button
+                    onClick={refreshDevices}
+                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    title="重新整理攝像頭清單"
+                  >
+                    🔄 重新整理
+                  </button>
+                </div>
+                
+                {devices.length === 0 ? (
+                  <div className="w-full border rounded px-3 py-2 bg-gray-100 text-gray-500">
+                    沒有找到攝像頭，請點擊重新整理
+                  </div>
+                ) : (
+                  <select
+                    value={selectedDevice}
+                    onChange={(e) => setSelectedDevice(e.target.value)}
+                    className="w-full border rounded px-3 py-2"
+                  >
+                    {devices.map((device, index) => (
+                      <option key={device.deviceId} value={device.deviceId}>
+                        {device.label || `攝像頭 ${index + 1} (${device.deviceId.slice(0, 8)}...)`}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                
+                <div className="text-xs text-gray-500 mt-1">
+                  找到 {devices.length} 個攝像頭
+                  {devices.length > 1 && '，可以選擇不同的攝像頭'}
+                </div>
               </div>
 
               <button
                 onClick={startCamera}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded"
+                disabled={devices.length === 0}
+                className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 rounded"
               >
-                啟動攝像頭
+                {devices.length === 0 ? '沒有可用攝像頭' : '啟動攝像頭'}
               </button>
 
               {/* 攝像頭預覽 */}
@@ -352,6 +438,15 @@ export default function TimelapseUploadPage() {
                   style={{ maxHeight: '300px' }}
                 />
                 <canvas ref={canvasRef} className="hidden" />
+                
+                {!stream && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg border-2 border-dashed border-gray-300">
+                    <div className="text-center text-gray-500">
+                      <div className="text-4xl mb-2">📷</div>
+                      <div className="text-sm">點擊「啟動攝像頭」開始預覽</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -419,15 +514,37 @@ export default function TimelapseUploadPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* 攝像頭畫面 */}
             <div className="lg:col-span-2 bg-white rounded-xl shadow-md p-6">
-              <h2 className="text-xl font-bold mb-4">即時畫面</h2>
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full rounded-lg border"
-              />
-              <canvas ref={canvasRef} className="hidden" />
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold">即時畫面</h2>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm text-gray-600">直播中</span>
+                </div>
+              </div>
+              
+              <div className="relative">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full rounded-lg border"
+                />
+                <canvas ref={canvasRef} className="hidden" />
+                
+                {/* 攝像頭資訊疊加 */}
+                <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
+                  {devices.find(d => d.deviceId === selectedDevice)?.label || '攝像頭'}
+                </div>
+                
+                {/* 拍攝狀態疊加 */}
+                {isRecording && (
+                  <div className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded text-xs flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                    <span>錄製中</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* 控制面板 */}
