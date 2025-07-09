@@ -35,6 +35,12 @@ export default function Navbar() {
               照片上傳
             </Link>
             <Link 
+              href="/upload/timelapse" 
+              className="hover:text-blue-200 transition-colors duration-200 font-medium"
+            >
+              定時拍攝
+            </Link>
+            <Link 
               href="/upload/csv" 
               className="hover:text-blue-200 transition-colors duration-200 font-medium"
             >
@@ -97,6 +103,13 @@ export default function Navbar() {
                 onClick={() => setIsMenuOpen(false)}
               >
                 照片上傳
+              </Link>
+              <Link 
+                href="/upload/timelapse" 
+                className="block px-3 py-2 rounded-md text-base font-medium hover:bg-blue-800 transition-colors duration-200"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                定時拍攝
               </Link>
               <Link 
                 href="/upload/csv" 
