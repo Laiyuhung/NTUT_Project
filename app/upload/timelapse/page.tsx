@@ -11,7 +11,6 @@ type Station = {
 
 export default function TimelapseUploadPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const recordingVideoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [selectedDevice, setSelectedDevice] = useState<string>('')
@@ -373,7 +372,7 @@ export default function TimelapseUploadPage() {
   // 拍攝照片
   const capturePhoto = async (): Promise<Blob | null> => {
     // 優先使用錄製階段的video，如果不存在則使用主video
-    const activeVideo = recordingVideoRef.current || videoRef.current
+    const activeVideo = videoRef.current
     
     if (!activeVideo || !canvasRef.current) {
       console.error('Video element 或 canvas element 不存在')
@@ -523,7 +522,7 @@ export default function TimelapseUploadPage() {
 
   // 自動設定攝像頭給錄製階段的video元素
   useEffect(() => {
-    if (stream && recordingVideoRef.current) {
+    if (stream && videoRef.current) {
       console.log('自動設定錄製階段video stream')
       console.log('當前stream狀態:', stream)
       console.log('stream tracks:', stream.getVideoTracks())
@@ -532,9 +531,9 @@ export default function TimelapseUploadPage() {
         // 等待 DOM 更新
         await new Promise(resolve => requestAnimationFrame(resolve))
         
-        const videoElement = recordingVideoRef.current
+        const videoElement = videoRef.current
         if (!videoElement) {
-          console.error('recordingVideoRef不存在')
+          console.error('videoRef不存在')
           return
         }
         
@@ -704,7 +703,7 @@ export default function TimelapseUploadPage() {
               </div>
               
               <div className="relative bg-black rounded-lg overflow-hidden" style={{ minHeight: '400px' }}>
-                {/* 主要預覽video */}
+                {/* 統一的攝像頭畫面 - 同時用於預覽和錄製 */}
                 <video
                   ref={videoRef}
                   autoPlay
@@ -713,52 +712,20 @@ export default function TimelapseUploadPage() {
                   className="w-full h-full object-cover"
                   style={{ display: stream ? 'block' : 'none' }}
                   onCanPlay={() => {
-                    console.log('主要Video can play')
-                    console.log('主要Video readyState:', videoRef.current?.readyState)
-                    console.log('主要Video dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight)
+                    console.log('Video can play')
+                    console.log('Video readyState:', videoRef.current?.readyState)
+                    console.log('Video dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight)
                   }}
-                  onPlay={() => console.log('主要Video is playing')}
-                  onError={(e) => console.error('主要Video error:', e)}
-                  onLoadedData={() => console.log('主要Video loaded data')}
-                  onWaiting={() => console.log('主要Video waiting')}
-                />
-                
-                {/* 錄製階段video */}
-                <video
-                  ref={recordingVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                  style={{ display: stream ? 'block' : 'none' }}
-                  onCanPlay={() => {
-                    console.log('錄製Video can play')
-                    console.log('錄製Video readyState:', recordingVideoRef.current?.readyState)
-                    console.log('錄製Video dimensions:', recordingVideoRef.current?.videoWidth, 'x', recordingVideoRef.current?.videoHeight)
-                  }}
-                  onPlay={() => {
-                    console.log('錄製Video is playing')
-                    // 強制重新渲染以隱藏提示
-                    if (recordingVideoRef.current) {
-                      recordingVideoRef.current.dispatchEvent(new Event('loadeddata'))
-                    }
-                  }}
-                  onError={(e) => console.error('錄製Video error:', e)}
-                  onLoadedData={() => {
-                    console.log('錄製Video loaded data')
-                    // 觸發重新渲染
-                    const video = recordingVideoRef.current
-                    if (video && video.videoWidth > 0) {
-                      console.log('攝像頭畫面已載入，尺寸:', video.videoWidth, 'x', video.videoHeight)
-                    }
-                  }}
-                  onWaiting={() => console.log('錄製Video waiting')}
+                  onPlay={() => console.log('Video is playing')}
+                  onError={(e) => console.error('Video error:', e)}
+                  onLoadedData={() => console.log('Video loaded data')}
+                  onWaiting={() => console.log('Video waiting')}
                   onLoadedMetadata={() => {
-                    console.log('錄製階段onLoadedMetadata 觸發')
-                    const video = recordingVideoRef.current
+                    console.log('Video onLoadedMetadata 觸發')
+                    const video = videoRef.current
                     if (video) {
-                      console.log('錄製階段影片尺寸:', video.videoWidth, 'x', video.videoHeight)
-                      video.play().catch(error => console.error('錄製階段metadata播放失敗:', error))
+                      console.log('影片尺寸:', video.videoWidth, 'x', video.videoHeight)
+                      video.play().catch(error => console.error('metadata播放失敗:', error))
                     }
                   }}
                 />
@@ -778,8 +745,7 @@ export default function TimelapseUploadPage() {
                 {stream && (
                   <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-90 text-white"
                        style={{ 
-                         display: (recordingVideoRef.current?.videoWidth && recordingVideoRef.current?.videoWidth > 0) || 
-                                 (videoRef.current?.videoWidth && videoRef.current?.videoWidth > 0) ? 'none' : 'flex' 
+                         display: (videoRef.current?.videoWidth && videoRef.current?.videoWidth > 0) ? 'none' : 'flex' 
                        }}>
                     <div className="text-center">
                       <div className="text-6xl mb-4">📷</div>
@@ -788,7 +754,7 @@ export default function TimelapseUploadPage() {
                       <button
                         onClick={async () => {
                           console.log('手動啟動攝像頭')
-                          const video = recordingVideoRef.current || videoRef.current
+                          const video = videoRef.current
                           if (video && stream) {
                             try {
                               console.log('重新設定攝像頭...')
@@ -858,7 +824,7 @@ export default function TimelapseUploadPage() {
                   <button
                     onClick={() => {
                       console.log('手動播放按鈕被點擊')
-                      const video = recordingVideoRef.current || videoRef.current
+                      const video = videoRef.current
                       video?.play().then(() => {
                         console.log('手動播放成功')
                       }).catch(error => {
@@ -944,7 +910,7 @@ export default function TimelapseUploadPage() {
               <button
                 onClick={async () => {
                   console.log('手動啟動拍攝階段攝像頭')
-                  const video = recordingVideoRef.current
+                  const video = videoRef.current
                   if (video && stream) {
                     try {
                       console.log('設定拍攝階段攝像頭...')
@@ -998,7 +964,7 @@ export default function TimelapseUploadPage() {
               <button
                 onClick={async () => {
                   console.log('重新連接攝像頭')
-                  const video = recordingVideoRef.current || videoRef.current
+                  const video = videoRef.current
                   if (video && stream) {
                     try {
                       // 直接重新設定stream，不清除不延遲
