@@ -203,8 +203,8 @@ export default function TimelapseUploadPage() {
       const constraints = {
         video: { 
           deviceId: selectedDevice ? { exact: selectedDevice } : undefined,
-          width: { ideal: 1920, min: 640 },
-          height: { ideal: 1080, min: 480 }
+          width: { ideal: 1280, min: 320 },
+          height: { ideal: 720, min: 240 }
         }
       }
 
@@ -212,40 +212,109 @@ export default function TimelapseUploadPage() {
       console.log('約束條件:', constraints)
       
       const newStream = await navigator.mediaDevices.getUserMedia(constraints)
+      console.log('取得串流成功，軌道數量:', newStream.getVideoTracks().length)
       
       setStream(newStream)
+      
       if (videoRef.current) {
+        // 清除之前的srcObject
+        videoRef.current.srcObject = null
+        
+        // 等待一個微任務週期
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // 設定新的srcObject
         videoRef.current.srcObject = newStream
         
         // 強制設定video元素屬性
         videoRef.current.muted = true
         videoRef.current.playsInline = true
+        videoRef.current.controls = false
         videoRef.current.autoplay = true
+        
+        // 監聽所有相關事件
+        videoRef.current.onloadstart = () => console.log('Video loadstart')
+        videoRef.current.onloadeddata = () => console.log('Video loadeddata')
+        videoRef.current.oncanplay = () => console.log('Video canplay')
+        videoRef.current.onplay = () => console.log('Video play')
+        videoRef.current.onerror = (e) => console.error('Video error:', e)
         
         // 等待metadata載入後播放
         videoRef.current.onloadedmetadata = async () => {
           try {
+            console.log('Video metadata loaded, 嘗試播放...')
+            console.log('Video 尺寸:', videoRef.current!.videoWidth, 'x', videoRef.current!.videoHeight)
             await videoRef.current!.play()
-            console.log('攝像頭啟動成功，影片尺寸:', videoRef.current!.videoWidth, 'x', videoRef.current!.videoHeight)
+            console.log('攝像頭播放成功')
           } catch (playError) {
-            console.warn('自動播放失敗:', playError)
-            // 如果自動播放失敗，顯示提示要求用戶點擊
-            alert('⚠️ 需要點擊播放按鈕來啟動影片預覽')
+            console.error('metadata播放失敗:', playError)
           }
         }
         
-        // 立即嘗試播放
+        // 強制重新載入
         try {
-          await videoRef.current.play()
-          console.log('攝像頭立即播放成功')
-        } catch (playError) {
-          console.warn('立即播放失敗，等待metadata載入:', playError)
+          videoRef.current.load()
+        } catch (loadError) {
+          console.warn('load()失敗:', loadError)
         }
+        
+        // 延遲播放嘗試
+        setTimeout(async () => {
+          try {
+            if (videoRef.current && videoRef.current.readyState >= 2) {
+              await videoRef.current.play()
+              console.log('延遲播放成功')
+            }
+          } catch (playError) {
+            console.warn('延遲播放失敗:', playError)
+          }
+        }, 500)
       }
     } catch (error) {
       console.error('啟動攝像頭失敗:', error)
       const errorMessage = error instanceof Error ? error.message : '未知錯誤'
       alert(`❌ 無法啟動攝像頭：${errorMessage}\n\n請檢查：\n1. 瀏覽器權限設定\n2. 攝像頭是否被其他應用程式佔用\n3. 嘗試選擇其他攝像頭`)
+    }
+  }
+
+  // 強制刷新影片顯示
+  const forceRefreshVideo = async () => {
+    if (!stream || !videoRef.current) {
+      alert('❌ 請先啟動攝像頭')
+      return
+    }
+
+    try {
+      console.log('強制刷新影片顯示...')
+      const video = videoRef.current
+      
+      // 暫停並清除
+      video.pause()
+      video.srcObject = null
+      
+      // 等待一下
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
+      // 重新設定
+      video.srcObject = stream
+      video.muted = true
+      video.playsInline = true
+      video.autoplay = true
+      
+      // 強制載入並播放
+      video.load()
+      
+      setTimeout(async () => {
+        try {
+          await video.play()
+          console.log('強制刷新成功')
+        } catch (error) {
+          console.error('強制刷新播放失敗:', error)
+        }
+      }, 300)
+      
+    } catch (error) {
+      console.error('強制刷新失敗:', error)
     }
   }
 
@@ -257,8 +326,15 @@ export default function TimelapseUploadPage() {
     }
 
     try {
+      console.log('測試拍攝開始...')
+      console.log('Video element:', videoRef.current)
+      console.log('Video ready state:', videoRef.current.readyState)
+      console.log('Video dimensions:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight)
+      console.log('Stream tracks:', stream.getVideoTracks())
+      
       const blob = await capturePhoto()
       if (blob) {
+        console.log('拍攝成功，blob size:', blob.size)
         // 建立預覽URL
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
@@ -268,11 +344,12 @@ export default function TimelapseUploadPage() {
         URL.revokeObjectURL(url)
         alert('✅ 測試拍攝成功！照片已下載')
       } else {
-        alert('❌ 測試拍攝失敗')
+        console.error('拍攝失敗，blob為null')
+        alert('❌ 測試拍攝失敗 - 無法取得影像')
       }
     } catch (error) {
       console.error('測試拍攝失敗:', error)
-      alert('❌ 測試拍攝時發生錯誤')
+      alert('❌ 測試拍攝時發生錯誤: ' + error)
     }
   }
 
@@ -474,12 +551,20 @@ export default function TimelapseUploadPage() {
 
               {/* 測試拍攝按鈕 */}
               {stream && (
-                <button
-                  onClick={testCapture}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded text-sm"
-                >
-                  📸 測試拍攝 (下載照片)
-                </button>
+                <div className="space-y-2">
+                  <button
+                    onClick={testCapture}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded text-sm"
+                  >
+                    📸 測試拍攝 (下載照片)
+                  </button>
+                  <button
+                    onClick={forceRefreshVideo}
+                    className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 rounded text-sm"
+                  >
+                    🔄 刷新影片顯示
+                  </button>
+                </div>
               )}
 
               {/* 攝像頭預覽 */}
@@ -490,9 +575,15 @@ export default function TimelapseUploadPage() {
                   playsInline
                   muted
                   className="w-full h-full object-cover"
-                  onCanPlay={() => console.log('Video can play')}
+                  onCanPlay={() => {
+                    console.log('Video can play')
+                    console.log('Video readyState:', videoRef.current?.readyState)
+                    console.log('Video dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight)
+                  }}
                   onPlay={() => console.log('Video is playing')}
                   onError={(e) => console.error('Video error:', e)}
+                  onLoadedData={() => console.log('Video loaded data')}
+                  onWaiting={() => console.log('Video waiting')}
                 />
                 <canvas ref={canvasRef} className="hidden" />
                 
@@ -512,11 +603,25 @@ export default function TimelapseUploadPage() {
                   </div>
                 )}
                 
+                {/* 除錯信息 */}
+                {stream && (
+                  <div className="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded text-xs">
+                    串流: {stream.getVideoTracks().length > 0 ? '✓' : '✗'}
+                  </div>
+                )}
+                
                 {/* 手動播放按鈕 - 當自動播放失敗時顯示 */}
                 {stream && (
                   <button
-                    onClick={() => videoRef.current?.play()}
-                    className="absolute inset-0 w-full h-full flex items-center justify-center bg-black bg-opacity-50 text-white opacity-0 hover:opacity-100 transition-opacity"
+                    onClick={() => {
+                      console.log('手動播放按鈕被點擊')
+                      videoRef.current?.play().then(() => {
+                        console.log('手動播放成功')
+                      }).catch(error => {
+                        console.error('手動播放失敗:', error)
+                      })
+                    }}
+                    className="absolute inset-0 w-full h-full flex items-center justify-center bg-black bg-opacity-30 text-white opacity-0 hover:opacity-100 transition-opacity"
                     title="點擊播放影片"
                   >
                     <div className="text-4xl">▶️</div>
