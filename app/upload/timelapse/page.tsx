@@ -365,25 +365,11 @@ export default function TimelapseUploadPage() {
       return
     }
     
+    console.log('確認設定 - 當前stream狀態:', stream)
+    console.log('確認設定 - stream tracks:', stream.getVideoTracks())
+    
     // 確保拍攝階段的video元素也有正確的stream
     setIsSetup(true)
-    
-    // 延遲一下確保DOM更新後重新設定video
-    setTimeout(() => {
-      if (recordingVideoRef.current && stream) {
-        console.log('拍攝階段 - 重新設定recordingVideo stream')
-        recordingVideoRef.current.srcObject = stream
-        recordingVideoRef.current.muted = true
-        recordingVideoRef.current.playsInline = true
-        recordingVideoRef.current.autoplay = true
-        
-        recordingVideoRef.current.play().then(() => {
-          console.log('拍攝階段 - recordingVideo播放成功')
-        }).catch(error => {
-          console.error('拍攝階段 - recordingVideo播放失敗:', error)
-        })
-      }
-    }, 100)
   }
 
   // 拍攝照片
@@ -532,47 +518,56 @@ export default function TimelapseUploadPage() {
 
   // 監控拍攝階段的video設定
   useEffect(() => {
-    if (isSetup && stream) {
+    if (isSetup && stream && recordingVideoRef.current) {
       console.log('拍攝階段 - 設定video stream')
       
-      // 同時設定兩個video ref
-      const setupVideo = (videoElement: HTMLVideoElement) => {
-        videoElement.srcObject = stream
-        videoElement.muted = true
-        videoElement.playsInline = true
-        videoElement.autoplay = true
+      const setupRecordingVideo = async () => {
+        const videoElement = recordingVideoRef.current
+        if (!videoElement) return
         
-        videoElement.onloadedmetadata = () => {
-          console.log('拍攝階段 - metadata loaded')
-          videoElement.play().then(() => {
-            console.log('拍攝階段 - video播放成功')
-          }).catch(error => {
-            console.error('拍攝階段 - video播放失敗:', error)
-          })
+        try {
+          // 清除舊的srcObject
+          videoElement.srcObject = null
+          
+          // 短暫延遲後設定新的srcObject
+          await new Promise(resolve => setTimeout(resolve, 100))
+          
+          // 設定新的stream
+          videoElement.srcObject = stream
+          videoElement.muted = true
+          videoElement.playsInline = true
+          videoElement.autoplay = true
+          
+          console.log('拍攝階段 - stream設定完成')
+          
+          // 等待metadata載入
+          const playVideo = () => {
+            videoElement.play().then(() => {
+              console.log('拍攝階段 - video播放成功')
+            }).catch(error => {
+              console.error('拍攝階段 - video播放失敗:', error)
+              // 重試播放
+              setTimeout(() => {
+                videoElement.play().catch(e => console.warn('重試播放失敗:', e))
+              }, 500)
+            })
+          }
+          
+          if (videoElement.readyState >= 2) {
+            // metadata已載入，直接播放
+            playVideo()
+          } else {
+            // 等待metadata載入
+            videoElement.onloadedmetadata = playVideo
+            videoElement.oncanplay = playVideo
+          }
+          
+        } catch (error) {
+          console.error('拍攝階段 - 設定video失敗:', error)
         }
-        
-        // 立即嘗試播放
-        videoElement.play().catch(error => {
-          console.warn('拍攝階段 - 立即播放失敗:', error)
-        })
       }
       
-      // 設定錄製階段的video
-      if (recordingVideoRef.current) {
-        setupVideo(recordingVideoRef.current)
-      }
-      
-      // 也設定主video（如果存在）
-      if (videoRef.current) {
-        setupVideo(videoRef.current)
-      }
-      
-      // 延遲重試
-      setTimeout(() => {
-        if (recordingVideoRef.current && stream) {
-          setupVideo(recordingVideoRef.current)
-        }
-      }, 500)
+      setupRecordingVideo()
     }
   }, [isSetup, stream])
 
@@ -801,8 +796,27 @@ export default function TimelapseUploadPage() {
                   onError={(e) => console.error('拍攝階段 Video error:', e)}
                   onLoadedData={() => console.log('拍攝階段 Video loaded data')}
                   onWaiting={() => console.log('拍攝階段 Video waiting')}
+                  onLoadedMetadata={() => {
+                    console.log('拍攝階段 - onLoadedMetadata 觸發')
+                    const video = recordingVideoRef.current
+                    if (video) {
+                      console.log('拍攝階段 - 影片尺寸:', video.videoWidth, 'x', video.videoHeight)
+                      video.play().catch(error => console.error('拍攝階段 - metadata播放失敗:', error))
+                    }
+                  }}
                 />
                 <canvas ref={canvasRef} className="hidden" />
+                
+                {/* 無畫面時的提示 */}
+                {stream && (!recordingVideoRef.current?.videoWidth || recordingVideoRef.current?.videoWidth === 0) && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 text-white">
+                    <div className="text-center">
+                      <div className="text-4xl mb-2">📷</div>
+                      <div className="text-lg mb-2">載入攝像頭中...</div>
+                      <div className="text-sm text-gray-300">如果持續沒有畫面，請點擊重新連接攝像頭</div>
+                    </div>
+                  </div>
+                )}
                 
                 {/* 攝像頭資訊疊加 */}
                 <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-xs">
@@ -833,23 +847,36 @@ export default function TimelapseUploadPage() {
                 )}
                 
                 {/* 手動播放按鈕 - 拍攝階段 */}
-                <button
-                  onClick={() => {
-                    console.log('拍攝階段 - 手動播放按鈕被點擊')
-                    if (recordingVideoRef.current && stream) {
-                      recordingVideoRef.current.srcObject = stream
-                      recordingVideoRef.current.play().then(() => {
-                        console.log('拍攝階段 - 手動播放成功')
-                      }).catch(error => {
-                        console.error('拍攝階段 - 手動播放失敗:', error)
-                      })
-                    }
-                  }}
-                  className="absolute inset-0 w-full h-full flex items-center justify-center bg-black bg-opacity-30 text-white opacity-0 hover:opacity-100 transition-opacity"
-                  title="點擊播放影片"
-                >
-                  <div className="text-6xl">▶️</div>
-                </button>
+                {stream && (
+                  <button
+                    onClick={() => {
+                      console.log('拍攝階段 - 手動播放按鈕被點擊')
+                      const video = recordingVideoRef.current
+                      if (video && stream) {
+                        // 重新設定stream
+                        video.srcObject = null
+                        setTimeout(() => {
+                          video.srcObject = stream
+                          video.muted = true
+                          video.playsInline = true
+                          video.autoplay = true
+                          video.play().then(() => {
+                            console.log('拍攝階段 - 手動播放成功')
+                          }).catch(error => {
+                            console.error('拍攝階段 - 手動播放失敗:', error)
+                          })
+                        }, 100)
+                      }
+                    }}
+                    className="absolute inset-0 w-full h-full flex items-center justify-center bg-black bg-opacity-30 text-white opacity-0 hover:opacity-100 transition-opacity"
+                    title="點擊重新載入影片"
+                  >
+                    <div className="text-center">
+                      <div className="text-6xl mb-2">▶️</div>
+                      <div className="text-sm">點擊重新載入</div>
+                    </div>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -881,24 +908,50 @@ export default function TimelapseUploadPage() {
                 
                 {/* 攝像頭重連按鈕 */}
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     console.log('重新連接攝像頭')
-                    if (recordingVideoRef.current && stream) {
-                      const video = recordingVideoRef.current
-                      video.srcObject = null
-                      setTimeout(() => {
+                    const video = recordingVideoRef.current
+                    if (video && stream) {
+                      try {
+                        // 清除舊的srcObject
+                        video.srcObject = null
+                        
+                        // 等待清除完成
+                        await new Promise(resolve => setTimeout(resolve, 200))
+                        
+                        // 重新設定stream
                         video.srcObject = stream
                         video.muted = true
                         video.playsInline = true
                         video.autoplay = true
-                        video.play().then(() => {
-                          console.log('重新連接成功')
-                          alert('✅ 攝像頭重新連接成功')
-                        }).catch(error => {
-                          console.error('重新連接失敗:', error)
-                          alert('❌ 攝像頭重新連接失敗')
-                        })
-                      }, 200)
+                        
+                        // 強制載入
+                        video.load()
+                        
+                        // 等待並播放
+                        video.onloadedmetadata = () => {
+                          video.play().then(() => {
+                            console.log('重新連接成功')
+                            alert('✅ 攝像頭重新連接成功')
+                          }).catch(error => {
+                            console.error('重新連接播放失敗:', error)
+                            alert('❌ 攝像頭重新連接失敗')
+                          })
+                        }
+                        
+                        // 立即嘗試播放
+                        setTimeout(() => {
+                          video.play().catch(error => {
+                            console.warn('立即播放失敗，等待metadata:', error)
+                          })
+                        }, 300)
+                        
+                      } catch (error) {
+                        console.error('重新連接失敗:', error)
+                        alert('❌ 攝像頭重新連接失敗')
+                      }
+                    } else {
+                      alert('❌ 沒有可用的攝像頭串流')
                     }
                   }}
                   className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 rounded text-sm mt-2"
