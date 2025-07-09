@@ -74,57 +74,263 @@ export default function TimelapseUploadPage() {
     return nearest.station.station_name
   }
 
-  // 載入測站清單
+  // 自動化初始化流程
   useEffect(() => {
-    fetch('/api/station-list')
-      .then(res => res.json())
-      .then(data => {
-        setStations(data)
-      })
-      .catch(err => console.error('載入測站清單失敗：', err))
-  }, [])
-
-  // 取得攝像頭清單
-  useEffect(() => {
-    const getDevices = async () => {
+    const initializeApp = async () => {
+      console.log('🚀 開始自動初始化流程...')
+      
       try {
-        // 先請求攝像頭權限，這樣才能取得有意義的設備標籤
-        await navigator.mediaDevices.getUserMedia({ video: true })
-          .then(stream => {
-            // 取得權限後立即停止，因為只是為了取得設備清單
-            stream.getTracks().forEach(track => track.stop())
-          })
+        // 1. 載入測站清單
+        console.log('📍 載入測站清單...')
+        const res = await fetch('/api/station-list')
+        const stationData = await res.json()
+        setStations(stationData)
+        console.log('✅ 測站清單載入完成，共', stationData.length, '個測站')
         
-        const devices = await navigator.mediaDevices.enumerateDevices()
-        const videoDevices = devices.filter(device => device.kind === 'videoinput')
-        console.log('找到攝像頭:', videoDevices.length, '個')
-        videoDevices.forEach((device, index) => {
-          console.log(`攝像頭 ${index + 1}:`, device.label || `未知設備 ${device.deviceId.slice(0, 8)}`)
-        })
-        
-        setDevices(videoDevices)
-        if (videoDevices.length > 0) {
-          setSelectedDevice(videoDevices[0].deviceId)
-        }
-      } catch (error) {
-        console.error('取得攝像頭清單失敗:', error)
-        // 即使失敗也嘗試取得基本設備清單
+        // 2. 自動取得攝像頭權限和設備清單
+        console.log('🎥 自動取得攝像頭權限...')
         try {
+          // 先請求攝像頭權限
+          const tempStream = await navigator.mediaDevices.getUserMedia({ video: true })
+          tempStream.getTracks().forEach(track => track.stop())
+          
           const devices = await navigator.mediaDevices.enumerateDevices()
           const videoDevices = devices.filter(device => device.kind === 'videoinput')
-          console.log('無權限狀態下找到攝像頭:', videoDevices.length, '個')
+          console.log('✅ 找到攝像頭:', videoDevices.length, '個')
+          
           setDevices(videoDevices)
           if (videoDevices.length > 0) {
             setSelectedDevice(videoDevices[0].deviceId)
+            
+            // 3. 自動啟動攝像頭
+            setTimeout(async () => {
+              console.log('🎥 自動啟動攝像頭...')
+              await autoStartCamera(videoDevices[0].deviceId)
+            }, 1000)
           }
-        } catch (err) {
-          console.error('完全無法取得設備清單:', err)
-          alert('❌ 無法存取攝像頭，請檢查瀏覽器權限')
+        } catch (error) {
+          console.error('❌ 自動取得攝像頭權限失敗:', error)
+          alert('❌ 無法自動啟動攝像頭，請手動操作')
         }
+        
+        // 4. 自動取得定位
+        setTimeout(() => {
+          console.log('📍 自動取得定位...')
+          autoGetLocation(stationData)
+        }, 2000)
+        
+      } catch (error) {
+        console.error('❌ 自動初始化失敗:', error)
       }
     }
-    getDevices()
+    
+    initializeApp()
   }, [])
+
+  // 自動啟動攝像頭函數
+  const autoStartCamera = async (deviceId?: string) => {
+    try {
+      console.log('🎥 自動啟動攝像頭流程開始...')
+      
+      // 如果已有 stream，先停止舊的
+      if (stream) {
+        console.log('停止舊的 stream')
+        stream.getTracks().forEach(track => track.stop())
+        setStream(null)
+      }
+
+      const constraints = {
+        video: { 
+          deviceId: deviceId ? { exact: deviceId } : undefined,
+          width: { ideal: 1280, min: 320 },
+          height: { ideal: 720, min: 240 }
+        }
+      }
+
+      console.log('🎥 自動啟動攝像頭，設備ID:', deviceId)
+      
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints)
+      console.log('✅ 自動取得串流成功')
+      
+      if (!newStream.active) {
+        throw new Error('新建立的媒體流不是活躍狀態')
+      }
+      
+      setStream(newStream)
+      
+      if (videoRef.current) {
+        console.log('🎥 自動設定 video 元素...')
+        videoRef.current.srcObject = null
+        await new Promise(resolve => setTimeout(resolve, 100))
+        videoRef.current.srcObject = newStream
+        videoRef.current.muted = true
+        videoRef.current.playsInline = true
+        videoRef.current.controls = false
+        videoRef.current.autoplay = true
+        
+        // 自動播放
+        try {
+          await videoRef.current.play()
+          console.log('✅ 攝像頭自動播放成功')
+        } catch (playError) {
+          console.warn('⚠️ 自動播放失敗，設定事件監聽器:', playError)
+          
+          videoRef.current.onloadedmetadata = async () => {
+            try {
+              await videoRef.current!.play()
+              console.log('✅ 延遲自動播放成功')
+            } catch (error) {
+              console.error('❌ 延遲自動播放失敗:', error)
+            }
+          }
+        }
+      }
+      
+      console.log('🎥 攝像頭自動啟動完成')
+      
+    } catch (error) {
+      console.error('❌ 自動啟動攝像頭失敗:', error)
+    }
+  }
+
+  // 自動取得定位函數
+  const autoGetLocation = (stationData: Station[]) => {
+    if (stationData.length === 0) {
+      console.error('❌ 自動定位失敗：測站資料未載入')
+      return
+    }
+    
+    console.log('📍 開始自動定位...')
+    setLocating(true)
+    
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords
+        console.log('✅ 自動定位成功:', latitude, longitude)
+
+        if (!isInTaipeiRegion(latitude, longitude)) {
+          console.warn('⚠️ 定位點不在雙北地區')
+          setLocating(false)
+          return
+        }
+
+        const nearest = findNearestStationAuto(latitude, longitude, stationData)
+
+        setForm(f => ({
+          ...f,
+          latitude: latitude.toString(),
+          longitude: longitude.toString(),
+          nearest_station: nearest,
+        }))
+        setLocating(false)
+        
+        console.log('✅ 自動設定完成，測站:', nearest)
+        
+        // 自動確認設定並準備開始拍攝
+        setTimeout(() => {
+          console.log('🎯 自動化流程準備完成，5秒後開始定時拍攝...')
+          setTimeout(() => {
+            autoStartRecording()
+          }, 5000)
+        }, 1000)
+      },
+      (err) => {
+        console.error('❌ 自動定位失敗:', err.message)
+        setLocating(false)
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000
+      }
+    )
+  }
+
+  // 自動版的尋找最近測站函數
+  const findNearestStationAuto = (lat: number, lng: number, stationData: Station[]): string => {
+    if (stationData.length === 0) {
+      console.log('測站清單尚未載入完成')
+      return ''
+    }
+    
+    const stationsWithDistance = stationData.map(station => ({
+      station,
+      distance: calculateDistance(lat, lng, station.latitude, station.longitude)
+    }))
+    
+    stationsWithDistance.sort((a, b) => a.distance - b.distance)
+    
+    const nearest = stationsWithDistance[0]
+    setNearestStationDistance(nearest.distance)
+    setNearestFiveStations(stationsWithDistance.slice(0, 5))
+    
+    return nearest.station.station_name
+  }
+
+  // 自動開始拍攝函數
+  const autoStartRecording = () => {
+    console.log('🎬 自動開始定時拍攝...')
+    
+    if (!stream) {
+      console.error('❌ 自動拍攝失敗：沒有攝像頭串流')
+      return
+    }
+    
+    if (!stream.active) {
+      console.error('❌ 自動拍攝失敗：攝像頭不活躍')
+      return
+    }
+    
+    if (!form.nearest_station) {
+      console.error('❌ 自動拍攝失敗：沒有測站資料')
+      return
+    }
+
+    console.log('🎬 開始自動定時拍攝')
+    setIsRecording(true)
+    setRecordCount(0)
+    
+    // 計算下次拍攝時間
+    const now = new Date()
+    const nextTime = new Date(now)
+    const minutes = now.getMinutes()
+    const nextMinutes = Math.ceil(minutes / 15) * 15
+    nextTime.setMinutes(nextMinutes, 0, 0)
+    if (nextMinutes >= 60) {
+      nextTime.setHours(nextTime.getHours() + 1)
+      nextTime.setMinutes(0, 0, 0)
+    }
+    setNextCaptureTime(nextTime)
+
+    console.log('⏰ 自動拍攝 - 下次拍攝時間:', nextTime.toLocaleString())
+
+    // 立即拍攝第一張
+    setTimeout(async () => {
+      console.log('📸 自動拍攝第一張照片...')
+      const blob = await capturePhoto()
+      if (blob) {
+        await uploadPhoto(blob, new Date())
+      }
+    }, 1000)
+
+    // 設定15分鐘間隔
+    const timer = setInterval(async () => {
+      const captureTime = new Date()
+      const blob = await capturePhoto()
+      if (blob) {
+        await uploadPhoto(blob, captureTime)
+      }
+      
+      const next = new Date(captureTime.getTime() + 15 * 60 * 1000)
+      setNextCaptureTime(next)
+    }, 15 * 60 * 1000)
+
+    setIntervalState(timer)
+    
+    console.log('✅ 自動定時拍攝已啟動')
+  }
+
+
 
   // 取得定位
   const handleGetLocation = () => {
@@ -889,75 +1095,139 @@ export default function TimelapseUploadPage() {
   return (
     <main className="min-h-screen bg-gray-100 p-3 sm:p-6">
       <div className="w-full max-w-6xl mx-auto space-y-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-center">定時拍攝系統</h1>
+        <div className="text-center space-y-4">
+          <h1 className="text-2xl sm:text-3xl font-bold">定時拍攝系統</h1>
+          
+          {/* 自動化狀態指示器 */}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center justify-center space-x-2 mb-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-green-800 font-semibold">🤖 全自動模式啟用</span>
+            </div>
+            <div className="text-sm text-green-700">
+              系統會自動完成：攝像頭啟動 → 定位 → 測站選擇 → 開始拍攝
+            </div>
+            <div className="text-xs text-green-600 mt-1">
+              無需手動操作，所有功能會在頁面載入後自動執行
+            </div>
+          </div>
+          
+          {/* 系統狀態總覽 */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div className={`p-3 rounded-lg border ${
+              devices.length > 0 ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+            }`}>
+              <div className="text-xs text-gray-600">攝像頭</div>
+              <div className={`text-sm font-medium ${
+                devices.length > 0 ? 'text-green-800' : 'text-gray-600'
+              }`}>
+                {devices.length > 0 ? '✅ 已連接' : '🔄 搜尋中'}
+              </div>
+            </div>
+            
+            <div className={`p-3 rounded-lg border ${
+              form.latitude ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+            }`}>
+              <div className="text-xs text-gray-600">定位</div>
+              <div className={`text-sm font-medium ${
+                form.latitude ? 'text-green-800' : 'text-gray-600'
+              }`}>
+                {form.latitude ? '✅ 已定位' : locating ? '🔄 定位中' : '⏳ 等待中'}
+              </div>
+            </div>
+            
+            <div className={`p-3 rounded-lg border ${
+              form.nearest_station ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+            }`}>
+              <div className="text-xs text-gray-600">測站</div>
+              <div className={`text-sm font-medium ${
+                form.nearest_station ? 'text-green-800' : 'text-gray-600'
+              }`}>
+                {form.nearest_station ? '✅ 已選擇' : '⏳ 等待中'}
+              </div>
+            </div>
+            
+            <div className={`p-3 rounded-lg border ${
+              isRecording ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
+            }`}>
+              <div className="text-xs text-gray-600">拍攝</div>
+              <div className={`text-sm font-medium ${
+                isRecording ? 'text-red-800' : 'text-gray-600'
+              }`}>
+                {isRecording ? '🔴 拍攝中' : '⏳ 準備中'}
+              </div>
+            </div>
+          </div>
+        </div>
         
         {/* 主要內容區域 - 合併設定與拍攝功能 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* 攝像頭預覽與即時畫面 */}
           <div className="lg:col-span-2 space-y-6">
-            {/* 攝像頭設定 */}
+            {/* 攝像頭設定 - 自動化版本 */}
             <div className="bg-white rounded-xl shadow-md p-6 space-y-4">
-              <h2 className="text-xl font-bold">攝像頭設定</h2>
+              <h2 className="text-xl font-bold flex items-center">
+                攝像頭設定 
+                <span className="ml-2 text-sm bg-green-100 text-green-800 px-2 py-1 rounded">自動化</span>
+              </h2>
               
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block font-medium">選擇攝像頭</label>
-                  <button
-                    onClick={refreshDevices}
-                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                    title="重新整理攝像頭清單"
-                  >
-                    🔄 重新整理
-                  </button>
+                  <label className="block font-medium">攝像頭狀態</label>
+                  <div className="flex items-center space-x-2">
+                    {stream && (
+                      <>
+                        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-sm text-green-600">已連接</span>
+                      </>
+                    )}
+                    {!stream && (
+                      <>
+                        <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+                        <span className="text-sm text-gray-600">初始化中...</span>
+                      </>
+                    )}
+                  </div>
                 </div>
                 
                 {devices.length === 0 ? (
                   <div className="w-full border rounded px-3 py-2 bg-gray-100 text-gray-500">
-                    沒有找到攝像頭，請點擊重新整理
+                    🔄 正在搜尋攝像頭...
                   </div>
                 ) : (
-                  <select
-                    value={selectedDevice}
-                    onChange={(e) => setSelectedDevice(e.target.value)}
-                    className="w-full border rounded px-3 py-2"
-                  >
-                    {devices.map((device, index) => (
-                      <option key={device.deviceId} value={device.deviceId}>
-                        {device.label || `攝像頭 ${index + 1} (${device.deviceId.slice(0, 8)}...)`}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="w-full border rounded px-3 py-2 bg-gray-100 text-gray-800">
+                    {devices.find(d => d.deviceId === selectedDevice)?.label || 
+                     `攝像頭 ${devices.findIndex(d => d.deviceId === selectedDevice) + 1}`}
+                  </div>
                 )}
                 
                 <div className="text-xs text-gray-500 mt-1">
-                  找到 {devices.length} 個攝像頭
-                  {devices.length > 1 && '，可以選擇不同的攝像頭'}
+                  {devices.length > 0 ? (
+                    `✅ 找到 ${devices.length} 個攝像頭，已自動選擇最佳設備`
+                  ) : (
+                    '🔄 正在自動初始化攝像頭...'
+                  )}
                 </div>
               </div>
 
-              <button
-                onClick={startCamera}
-                disabled={devices.length === 0}
-                className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 rounded"
-              >
-                {devices.length === 0 ? '沒有可用攝像頭' : '啟動攝像頭'}
-              </button>
-
-              {/* 測試拍攝按鈕 */}
-              {stream && (
-                <div className="flex space-x-2">
-                  <button
-                    onClick={testCapture}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded text-sm"
-                  >
-                    📸 測試拍攝 (下載照片)
-                  </button>
-                  <button
-                    onClick={forceRefreshVideo}
-                    className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 rounded text-sm"
-                  >
-                    🔄 刷新影片顯示
-                  </button>
+              {/* 手動重新啟動按鈕 - 緊急情況使用 */}
+              {devices.length > 0 && (
+                <div className="pt-4 border-t">
+                  <div className="text-sm text-gray-600 mb-2">緊急控制：</div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={startCamera}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded text-sm"
+                    >
+                      � 重新啟動
+                    </button>
+                    <button
+                      onClick={refreshDevices}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded text-sm"
+                    >
+                      � 重新搜尋
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -1011,60 +1281,27 @@ export default function TimelapseUploadPage() {
                 />
                 <canvas ref={canvasRef} className="hidden" />
                 
-                {/* 無畫面時的提示 */}
+                {/* 無畫面時的提示 - 自動化版本 */}
                 {!stream && (
                   <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg border-2 border-dashed border-gray-300">
                     <div className="text-center text-gray-500">
-                      <div className="text-4xl mb-2">📷</div>
-                      <div className="text-sm">點擊「啟動攝像頭」開始預覽</div>
+                      <div className="text-4xl mb-2 animate-pulse">📷</div>
+                      <div className="text-sm">🔄 正在自動啟動攝像頭...</div>
+                      <div className="text-xs text-gray-400 mt-1">請稍候，無需手動操作</div>
                     </div>
                   </div>
                 )}
                 
-                {/* 有串流但無畫面時的提示 */}
+                {/* 有串流但無畫面時的提示 - 簡化版本 */}
                 {stream && (
                   <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-90 text-white"
                        style={{ 
                          display: (videoRef.current?.videoWidth && videoRef.current?.videoWidth > 0) ? 'none' : 'flex' 
                        }}>
                     <div className="text-center">
-                      <div className="text-6xl mb-4">📷</div>
-                      <div className="text-xl mb-4">攝像頭未啟動</div>
-                      <div className="text-sm text-gray-300 mb-6">點擊下方按鈕手動啟動攝像頭</div>
-                      <button
-                        onClick={async () => {
-                          console.log('手動啟動攝像頭')
-                          const video = videoRef.current
-                          if (video && stream) {
-                            try {
-                              console.log('重新設定攝像頭...')
-                              
-                              // 直接設定stream
-                              video.srcObject = stream
-                              video.muted = true
-                              video.playsInline = true
-                              video.autoplay = true
-                              
-                              // 強制載入並播放
-                              video.load()
-                              
-                              await video.play()
-                              console.log('攝像頭重新啟動成功')
-                              
-                              // 強制重新渲染以隱藏提示
-                              video.dispatchEvent(new Event('loadeddata'))
-                            } catch (error) {
-                              console.error('攝像頭重新啟動失敗:', error)
-                              alert('❌ 攝像頭啟動失敗，請檢查設備')
-                            }
-                          } else {
-                            alert('❌ 沒有可用的攝像頭串流，請重新啟動攝像頭')
-                          }
-                        }}
-                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold"
-                      >
-                        🚀 啟動攝像頭
-                      </button>
+                      <div className="text-6xl mb-4 animate-pulse">📷</div>
+                      <div className="text-xl mb-4">正在載入畫面...</div>
+                      <div className="text-sm text-gray-300">攝像頭已連接，請稍候</div>
                     </div>
                   </div>
                 )}
@@ -1123,196 +1360,159 @@ export default function TimelapseUploadPage() {
 
           {/* 控制面板 */}
           <div className="space-y-6">
-            {/* 位置設定 */}
+            {/* 位置設定 - 自動化版本 */}
             <div className="bg-white rounded-xl shadow-md p-6 space-y-4">
-              <h2 className="text-xl font-bold">位置設定</h2>
+              <h2 className="text-xl font-bold flex items-center">
+                位置設定
+                <span className="ml-2 text-sm bg-green-100 text-green-800 px-2 py-1 rounded">自動化</span>
+              </h2>
               
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">定位狀態：</span>
+                <div className="flex items-center space-x-2">
+                  {locating ? (
+                    <>
+                      <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                      <span className="text-sm text-blue-600">定位中...</span>
+                    </>
+                  ) : form.latitude ? (
+                    <>
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <span className="text-sm text-green-600">已定位</span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+                      <span className="text-sm text-gray-600">等待中...</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* 手動取得定位按鈕 - 緊急情況使用 */}
               <button
                 onClick={handleGetLocation}
                 disabled={locating || stations.length === 0}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 rounded"
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-2 rounded text-sm"
               >
-                {locating ? '取得定位中...' : stations.length === 0 ? '載入測站中...' : '取得定位與測站'}
+                {locating ? '🔄 定位中...' : stations.length === 0 ? '⏳ 載入測站中...' : '🔄 重新定位'}
               </button>
 
               <div className="space-y-3">
                 <div>
-                  <label className="block font-medium mb-1">緯度</label>
+                  <label className="block font-medium mb-1 text-sm">緯度</label>
                   <input
                     value={form.latitude}
                     readOnly
-                    className="w-full border rounded px-3 py-2 bg-gray-100"
-                    placeholder="自動取得"
+                    className="w-full border rounded px-3 py-2 bg-gray-100 text-sm"
+                    placeholder="自動取得中..."
                   />
                 </div>
                 <div>
-                  <label className="block font-medium mb-1">經度</label>
+                  <label className="block font-medium mb-1 text-sm">經度</label>
                   <input
                     value={form.longitude}
                     readOnly
-                    className="w-full border rounded px-3 py-2 bg-gray-100"
-                    placeholder="自動取得"
+                    className="w-full border rounded px-3 py-2 bg-gray-100 text-sm"
+                    placeholder="自動取得中..."
                   />
                 </div>
                 <div>
-                  <label className="block font-medium mb-1">鄰近測站</label>
-                  <div className="px-3 py-2 border rounded bg-gray-100 text-gray-800 min-h-[42px] flex items-center">
+                  <label className="block font-medium mb-1 text-sm">鄰近測站</label>
+                  <div className="px-3 py-2 border rounded bg-gray-100 text-gray-800 min-h-[42px] flex items-center text-sm">
                     {form.nearest_station ? (
                       <div>
                         <div className="font-medium">{form.nearest_station}</div>
                         {nearestStationDistance && (
-                          <div className="text-sm text-gray-600">
+                          <div className="text-xs text-gray-600">
                             距離: {nearestStationDistance.toFixed(2)} 公里
                           </div>
                         )}
                       </div>
                     ) : (
-                      '（尚未定位）'
+                      '🔄 自動定位中...'
                     )}
                   </div>
                 </div>
               </div>
-
-              <button
-                onClick={confirmSetup}
-                disabled={!form.nearest_station || !stream}
-                className="w-full bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 rounded"
-              >
-                確認設定完成
-              </button>
             </div>
         
-            {/* 拍攝控制 */}
+            {/* 拍攝控制 - 自動化版本 */}
             <div className="bg-white rounded-xl shadow-md p-6">
-              <h3 className="text-lg font-bold mb-4">拍攝控制</h3>
+              <h3 className="text-lg font-bold mb-4 flex items-center">
+                拍攝控制
+                <span className="ml-2 text-sm bg-green-100 text-green-800 px-2 py-1 rounded">自動化</span>
+              </h3>
               
-              {/* 手動啟動攝像頭按鈕 */}
-              <button
-                onClick={async () => {
-                  console.log('手動啟動拍攝階段攝像頭')
-                  const video = videoRef.current
-                  if (video && stream) {
-                    try {
-                      console.log('設定拍攝階段攝像頭...')
-                      
-                      // 直接設定stream
-                      video.srcObject = stream
-                      video.muted = true
-                      video.playsInline = true
-                      video.autoplay = true
-                      
-                      // 強制載入並播放
-                      video.load()
-                      
-                      await video.play()
-                      console.log('拍攝階段攝像頭啟動成功')
-                      alert('✅ 攝像頭已啟動')
-                    } catch (error) {
-                      console.error('拍攝階段攝像頭啟動失敗:', error)
-                      alert('❌ 攝像頭啟動失敗，請重試')
-                    }
-                  } else {
-                    alert('❌ 沒有可用的攝像頭串流，請先啟動攝像頭')
-                  }
-                }}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded text-sm mb-3"
-              >
-                📹 手動啟動攝像頭
-              </button>
-              
-              {!isRecording ? (
-                <button
-                  onClick={startRecording}
-                  className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded"
-                >
-                  🔴 開始定時拍攝
-                </button>
-              ) : (
-                <button
-                  onClick={stopRecording}
-                  className="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 rounded"
-                >
-                  ⏹️ 停止拍攝
-                </button>
-              )}
-
-              <div className="mt-4 text-sm text-gray-600">
-                拍攝間隔：每 15 分鐘
+              <div className="space-y-3 mb-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">系統狀態：</span>
+                  <div className="flex items-center space-x-2">
+                    {!isRecording ? (
+                      <>
+                        <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                        <span className="text-sm text-blue-600">準備中</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                        <span className="text-sm text-red-600">拍攝中</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="text-xs text-gray-500 bg-blue-50 p-2 rounded">
+                  💡 系統會自動完成以下流程：
+                  <br />1. 取得攝像頭權限並啟動
+                  <br />2. 自動定位並選擇最近測站
+                  <br />3. 5秒後自動開始定時拍攝
+                  <br />4. 每15分鐘自動拍攝並上傳
+                </div>
               </div>
               
-              {/* 攝像頭重連按鈕 */}
-              <button
-                onClick={async () => {
-                  console.log('重新連接攝像頭')
-                  const video = videoRef.current
-                  if (video && stream) {
-                    try {
-                      // 直接重新設定stream，不清除不延遲
-                      video.srcObject = stream
-                      video.muted = true
-                      video.playsInline = true
-                      video.autoplay = true
-                      
-                      // 強制載入
-                      video.load()
-                      
-                      // 立即嘗試播放
-                      try {
-                        await video.play()
-                        console.log('重新連接成功')
-                        alert('✅ 攝像頭重新連接成功')
-                      } catch (error) {
-                        console.warn('立即播放失敗，設定metadata監聽器:', error)
-                        
-                        // 設定metadata事件監聽器作為備用
-                        video.onloadedmetadata = () => {
-                          video.play().then(() => {
-                            console.log('重新連接成功')
-                            alert('✅ 攝像頭重新連接成功')
-                          }).catch(error => {
-                            console.error('重新連接播放失敗:', error)
-                            alert('❌ 攝像頭重新連接失敗')
-                          })
-                        }
-                      }
-                      
-                    } catch (error) {
-                      console.error('重新連接失敗:', error)
-                      alert('❌ 攝像頭重新連接失敗')
-                    }
-                  } else {
-                    alert('❌ 沒有可用的攝像頭串流')
-                  }
-                }}
-                className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 rounded text-sm mt-2"
-              >
-                📹 重新連接攝像頭
-              </button>
-              
-              {/* 測試拍攝按鈕 */}
-              <button
-                onClick={async () => {
-                  console.log('測試拍攝')
-                  setUploading(true)
-                  try {
-                    const blob = await capturePhoto()
-                    if (blob) {
-                      console.log('測試拍攝成功，照片大小:', blob.size)
-                      alert('✅ 測試拍攝成功！照片大小: ' + (blob.size / 1024).toFixed(1) + ' KB')
-                    } else {
-                      alert('❌ 測試拍攝失敗，請檢查攝像頭')
-                    }
-                  } catch (error) {
-                    console.error('測試拍攝錯誤:', error)
-                    alert('❌ 測試拍攝失敗')
-                  } finally {
-                    setUploading(false)
-                  }
-                }}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded text-sm mt-2"
-              >
-                📸 測試拍攝
-              </button>
+              {/* 手動控制 - 緊急情況使用 */}
+              <div className="pt-4 border-t">
+                <div className="text-sm text-gray-600 mb-2">手動控制：</div>
+                {!isRecording ? (
+                  <button
+                    onClick={startRecording}
+                    disabled={!stream || !form.nearest_station}
+                    className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-2 rounded text-sm"
+                  >
+                    🔴 手動開始拍攝
+                  </button>
+                ) : (
+                  <button
+                    onClick={stopRecording}
+                    className="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 rounded text-sm"
+                  >
+                    ⏹️ 停止拍攝
+                  </button>
+                )}
+                
+                {/* 測試功能 */}
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <button
+                    onClick={testCapture}
+                    disabled={!stream}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-1 rounded text-xs"
+                  >
+                    📸 測試拍攝
+                  </button>
+                  <button
+                    onClick={forceRefreshVideo}
+                    disabled={!stream}
+                    className="bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-400 text-white font-semibold py-1 rounded text-xs"
+                  >
+                    🔄 重新整理
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-4 text-xs text-gray-600">
+                ⏰ 拍攝間隔：每 15 分鐘自動拍攝
+              </div>
             </div>
 
             {/* 拍攝狀態 */}
