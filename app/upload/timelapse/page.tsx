@@ -363,7 +363,26 @@ export default function TimelapseUploadPage() {
       alert('❌ 請先啟動攝像頭')
       return
     }
+    
+    // 確保拍攝階段的video元素也有正確的stream
     setIsSetup(true)
+    
+    // 延遲一下確保DOM更新後重新設定video
+    setTimeout(() => {
+      if (videoRef.current && stream) {
+        console.log('拍攝階段 - 重新設定video stream')
+        videoRef.current.srcObject = stream
+        videoRef.current.muted = true
+        videoRef.current.playsInline = true
+        videoRef.current.autoplay = true
+        
+        videoRef.current.play().then(() => {
+          console.log('拍攝階段 - video播放成功')
+        }).catch(error => {
+          console.error('拍攝階段 - video播放失敗:', error)
+        })
+      }
+    }, 100)
   }
 
   // 拍攝照片
@@ -492,6 +511,41 @@ export default function TimelapseUploadPage() {
       }
     }
   }, [stream, interval])
+
+  // 監控拍攝階段的video設定
+  useEffect(() => {
+    if (isSetup && stream && videoRef.current) {
+      console.log('拍攝階段 - 設定video stream')
+      const video = videoRef.current
+      
+      // 確保video元素有正確的stream
+      video.srcObject = stream
+      video.muted = true
+      video.playsInline = true
+      video.autoplay = true
+      
+      // 嘗試播放
+      const playVideo = async () => {
+        try {
+          await video.play()
+          console.log('拍攝階段 - video播放成功')
+        } catch (error) {
+          console.error('拍攝階段 - video播放失敗:', error)
+          // 如果播放失敗，再試一次
+          setTimeout(async () => {
+            try {
+              await video.play()
+              console.log('拍攝階段 - video重試播放成功')
+            } catch (retryError) {
+              console.error('拍攝階段 - video重試播放失敗:', retryError)
+            }
+          }, 500)
+        }
+      }
+      
+      playVideo()
+    }
+  }, [isSetup, stream])
 
   return (
     <main className="min-h-screen bg-gray-100 p-3 sm:p-6">
@@ -735,6 +789,25 @@ export default function TimelapseUploadPage() {
                     <span>直播中</span>
                   </div>
                 )}
+                
+                {/* 手動播放按鈕 - 拍攝階段 */}
+                <button
+                  onClick={() => {
+                    console.log('拍攝階段 - 手動播放按鈕被點擊')
+                    if (videoRef.current && stream) {
+                      videoRef.current.srcObject = stream
+                      videoRef.current.play().then(() => {
+                        console.log('拍攝階段 - 手動播放成功')
+                      }).catch(error => {
+                        console.error('拍攝階段 - 手動播放失敗:', error)
+                      })
+                    }
+                  }}
+                  className="absolute inset-0 w-full h-full flex items-center justify-center bg-black bg-opacity-30 text-white opacity-0 hover:opacity-100 transition-opacity"
+                  title="點擊播放影片"
+                >
+                  <div className="text-6xl">▶️</div>
+                </button>
               </div>
             </div>
 
@@ -763,6 +836,31 @@ export default function TimelapseUploadPage() {
                 <div className="mt-4 text-sm text-gray-600">
                   拍攝間隔：每 15 分鐘
                 </div>
+                
+                {/* 攝像頭重連按鈕 */}
+                <button
+                  onClick={() => {
+                    console.log('重新連接攝像頭')
+                    if (videoRef.current && stream) {
+                      videoRef.current.srcObject = null
+                      setTimeout(() => {
+                        if (videoRef.current) {
+                          videoRef.current.srcObject = stream
+                          videoRef.current.play().then(() => {
+                            console.log('重新連接成功')
+                            alert('✅ 攝像頭重新連接成功')
+                          }).catch(error => {
+                            console.error('重新連接失敗:', error)
+                            alert('❌ 攝像頭重新連接失敗')
+                          })
+                        }
+                      }, 200)
+                    }
+                  }}
+                  className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 rounded text-sm mt-2"
+                >
+                  📹 重新連接攝像頭
+                </button>
               </div>
 
               {/* 拍攝狀態 */}
