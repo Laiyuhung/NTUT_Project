@@ -25,6 +25,7 @@ export default function TimelapsePage() {
   const [stations, setStations] = useState<{id: string, name: string, distance?: number}[]>([])
   const [selectedStation, setSelectedStation] = useState<string>('定時拍攝')
   const [isLoadingStations, setIsLoadingStations] = useState(false)
+  const [selectionMode, setSelectionMode] = useState<'auto' | 'manual'>('auto') // 測站選擇模式: 自動或手動
   
   // 定義測站類型
   type Station = {
@@ -247,16 +248,16 @@ export default function TimelapsePage() {
       const apiData = await response.json()
       
       // 將API返回的數據映射到我們的Station類型
-      const stations = apiData.map((item: StationApiData) => ({
+      let mappedStations = apiData.map((item: StationApiData) => ({
         id: item.station_name, // 使用station_name作為ID
         name: item.station_name,
         latitude: item.latitude,
         longitude: item.longitude
-      }))
+      }));
       
       // 如果有位置信息，計算距離並排序
       if (location) {
-        const stationsWithDistance = stations.map((station: Station) => {
+        mappedStations = mappedStations.map((station: Station) => {
           // 計算與當前位置的距離
           const distance = calculateDistance(
             location.latitude, 
@@ -271,18 +272,23 @@ export default function TimelapsePage() {
           }
         }).sort((a: Station, b: Station) => (a.distance || Infinity) - (b.distance || Infinity))
         
-        setStations(stationsWithDistance)
-        
-        // 自動選擇最近的測站
-        if (stationsWithDistance.length > 0) {
-          setSelectedStation(stationsWithDistance[0].id || stationsWithDistance[0].name)
+        // 自動模式下選擇最近的測站
+        if (selectionMode === 'auto' && mappedStations.length > 0) {
+          setSelectedStation(mappedStations[0].id || mappedStations[0].name)
         }
       } else {
-        setStations(stations)
+        // 沒有位置信息時自動切換到手動模式
+        setSelectionMode('manual')
       }
+      
+      // 無論如何都更新測站列表
+      setStations(mappedStations)
+      
     } catch (error) {
       console.error('獲取測站列表失敗:', error)
       setCameraError(`獲取測站列表失敗: ${error instanceof Error ? error.message : '未知錯誤'}`)
+      // 發生錯誤時強制切換到手動模式
+      setSelectionMode('manual')
     } finally {
       setIsLoadingStations(false)
     }
@@ -331,12 +337,22 @@ export default function TimelapsePage() {
     if (currentStep === 1) {
       // 從步驟1（啟動攝影機）到步驟2（選擇測站）
       const locationData = await getCurrentLocation()
-      if (locationData) {
-        await fetchStations()
+      await fetchStations() // 無論是否獲取到位置，都嘗試獲取測站列表
+      
+      // 若無法獲取位置，自動切換到手動模式
+      if (!locationData) {
+        setSelectionMode('manual')
       }
+      
       setCurrentStep(2)
     } else if (currentStep === 2) {
       // 從步驟2（選擇測站）到步驟3（確認預覽）
+      
+      // 如果是自動模式且有測站，確保選擇了最近的測站
+      if (selectionMode === 'auto' && location && stations.length > 0) {
+        setSelectedStation(stations[0].id || stations[0].name)
+      }
+      
       await captureImage(true) // 生成預覽圖
       setCurrentStep(3)
     }
@@ -346,6 +362,17 @@ export default function TimelapsePage() {
   const startCapture = () => {
     setPreviewImage(null) // 清除預覽
     startTimelapseCapture()
+  }
+  
+  // 處理測站選擇模式切換
+  const handleModeChange = (mode: 'auto' | 'manual') => {
+    setSelectionMode(mode)
+    
+    // 自動模式下，如果有位置和測站數據，自動選擇最近的測站
+    if (mode === 'auto' && location && stations.length > 0) {
+      // 假設測站已經按距離排序
+      setSelectedStation(stations[0].id || stations[0].name)
+    }
   }
   
   // 組件載入時獲取攝影機設備
@@ -485,10 +512,49 @@ export default function TimelapsePage() {
         <div className="bg-white shadow-lg rounded-lg p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">步驟 2: 選擇測站</h2>
           
+          {/* 選擇模式切換 */}
+          <div className="mb-6">
+            <div className="flex items-center justify-center space-x-4">
+              <button 
+                className={`px-4 py-2 rounded-md font-medium ${
+                  selectionMode === 'auto' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+                onClick={() => handleModeChange('auto')}
+              >
+                自動選擇測站
+              </button>
+              
+              <button 
+                className={`px-4 py-2 rounded-md font-medium ${
+                  selectionMode === 'manual' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+                onClick={() => handleModeChange('manual')}
+              >
+                手動選擇測站
+              </button>
+            </div>
+            
+            {selectionMode === 'auto' && location && (
+              <p className="mt-2 text-sm text-green-600 text-center">
+                系統將根據您的位置自動選擇最近的測站
+              </p>
+            )}
+            
+            {selectionMode === 'auto' && !location && (
+              <p className="mt-2 text-sm text-yellow-600 text-center">
+                無法獲取您的位置，請嘗試手動選擇或允許位置權限
+              </p>
+            )}
+          </div>
+          
           {/* 測站選擇 */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              選擇最近的測站
+              {selectionMode === 'auto' ? '最近的測站' : '選擇測站'}
             </label>
             
             {isLoadingStations ? (
@@ -498,6 +564,7 @@ export default function TimelapsePage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 value={selectedStation}
                 onChange={(e) => setSelectedStation(e.target.value)}
+                disabled={selectionMode === 'auto' && location !== null && stations.length > 0}
               >
                 <option value="定時拍攝">定時拍攝 (預設)</option>
                 {stations.map((station) => (
@@ -506,6 +573,12 @@ export default function TimelapsePage() {
                   </option>
                 ))}
               </select>
+            )}
+            
+            {selectionMode === 'auto' && location && stations.length > 0 && (
+              <p className="mt-2 text-xs text-blue-600">
+                已自動選擇最近的測站：{stations[0].name} ({stations[0].distance?.toFixed(2)} 公里)
+              </p>
             )}
           </div>
           
