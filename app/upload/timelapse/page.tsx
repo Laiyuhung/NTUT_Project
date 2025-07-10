@@ -26,6 +26,15 @@ export default function TimelapsePage() {
   const [selectedStation, setSelectedStation] = useState<string>('定時拍攝')
   const [isLoadingStations, setIsLoadingStations] = useState(false)
   
+  // 定義測站類型
+  type Station = {
+    id: string;
+    name: string;
+    latitude?: number;
+    longitude?: number;
+    distance?: number;
+  }
+
   // 啟動攝影機
   const startCamera = async (deviceId?: string) => {
     try {
@@ -232,7 +241,7 @@ export default function TimelapsePage() {
       
       // 如果有位置信息，計算距離並排序
       if (location) {
-        const stationsWithDistance = data.stations.map((station: any) => {
+        const stationsWithDistance = data.stations.map((station: Station) => {
           // 計算與當前位置的距離
           const distance = calculateDistance(
             location.latitude, 
@@ -245,7 +254,7 @@ export default function TimelapsePage() {
             ...station,
             distance
           }
-        }).sort((a: any, b: any) => (a.distance || Infinity) - (b.distance || Infinity))
+        }).sort((a: Station, b: Station) => (a.distance || Infinity) - (b.distance || Infinity))
         
         setStations(stationsWithDistance)
         
@@ -254,7 +263,7 @@ export default function TimelapsePage() {
           setSelectedStation(stationsWithDistance[0].id || stationsWithDistance[0].name)
         }
       } else {
-        setStations(data.stations)
+        setStations(data.stations as Station[])
       }
     } catch (error) {
       console.error('獲取測站列表失敗:', error)
