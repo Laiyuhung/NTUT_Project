@@ -405,9 +405,29 @@ export default function TimelapsePage() {
     }
   }
   
-  // 組件載入時獲取攝影機設備
+  // 組件載入時獲取攝影機設備與位置信息
   useEffect(() => {
     getVideoDevices()
+    
+    // 自動獲取位置信息並載入測站
+    const initLocationAndStations = async () => {
+      // 確保默認為自動模式
+      setSelectionMode('auto')
+      
+      // 獲取當前位置
+      const locationData = await getCurrentLocation()
+      
+      // 無論是否獲取到位置，都嘗試獲取測站列表
+      await fetchStations()
+      
+      // 若無法獲取位置，自動切換到手動模式
+      if (!locationData) {
+        setSelectionMode('manual')
+      }
+    }
+    
+    // 執行初始化
+    initLocationAndStations()
     
     // 組件卸載時清理
     return () => {
@@ -663,9 +683,17 @@ export default function TimelapsePage() {
               )}
             </div>
             
-            {/* 右側：最近的測站列表 */}
+            {/* 右側：最近的測站列表 - 無論是自動還是手動模式都顯示 */}
             <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-2">最近的五個測站</h3>
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-sm font-medium text-gray-700">最近的五個測站</h3>
+                {!location && (
+                  <span className="text-xs text-blue-600 cursor-pointer hover:text-blue-800" 
+                        onClick={getCurrentLocation}>
+                    取得位置
+                  </span>
+                )}
+              </div>
               {nearestFiveStations.length > 0 ? (
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {nearestFiveStations.map((station, index) => (
@@ -675,7 +703,12 @@ export default function TimelapsePage() {
                         index === 0 
                           ? 'bg-blue-50 border-blue-300' 
                           : 'bg-gray-50 border-gray-200'
-                      }`}
+                      } ${selectionMode === 'manual' ? 'cursor-pointer hover:bg-gray-100' : ''}`}
+                      onClick={() => {
+                        if (selectionMode === 'manual') {
+                          setSelectedStation(station.id || station.name);
+                        }
+                      }}
                     >
                       <div className="flex items-center justify-between">
                         <div>
@@ -686,10 +719,15 @@ export default function TimelapsePage() {
                             距離: {station.distance?.toFixed(2)} 公里
                           </div>
                         </div>
-                        <div className={`text-sm font-bold ${
-                          index === 0 ? 'text-blue-600' : 'text-gray-400'
-                        }`}>
-                          #{index + 1}
+                        <div className="flex items-center">
+                          {selectedStation === station.id && (
+                            <span className="text-green-600 text-xs font-medium mr-2">✓ 已選擇</span>
+                          )}
+                          <div className={`text-sm font-bold ${
+                            index === 0 ? 'text-blue-600' : 'text-gray-400'
+                          }`}>
+                            #{index + 1}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -699,6 +737,13 @@ export default function TimelapsePage() {
                 <div className="text-center text-gray-500 py-4 border rounded bg-gray-50">
                   <div className="text-2xl mb-1">📍</div>
                   <div className="text-sm">尚未取得測站資料</div>
+                  <button
+                    onClick={getCurrentLocation}
+                    disabled={isLoadingStations}
+                    className="mt-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-xs font-medium py-1 px-3 rounded"
+                  >
+                    {isLoadingStations ? '取得中...' : '取得最近測站'}
+                  </button>
                 </div>
               )}
             </div>
