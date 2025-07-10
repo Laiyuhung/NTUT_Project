@@ -26,6 +26,8 @@ export default function TimelapsePage() {
   const [selectedStation, setSelectedStation] = useState<string>('定時拍攝')
   const [isLoadingStations, setIsLoadingStations] = useState(false)
   const [selectionMode, setSelectionMode] = useState<'auto' | 'manual'>('auto') // 測站選擇模式: 自動或手動
+  const [nearestStationDistance, setNearestStationDistance] = useState<number | null>(null)
+  const [nearestFiveStations, setNearestFiveStations] = useState<Station[]>([])
   
   // 定義測站類型
   type Station = {
@@ -257,6 +259,7 @@ export default function TimelapsePage() {
       
       // 如果有位置信息，計算距離並排序
       if (location) {
+        // 計算所有測站的距離
         mappedStations = mappedStations.map((station: Station) => {
           // 計算與當前位置的距離
           const distance = calculateDistance(
@@ -272,13 +275,23 @@ export default function TimelapsePage() {
           }
         }).sort((a: Station, b: Station) => (a.distance || Infinity) - (b.distance || Infinity))
         
-        // 自動模式下選擇最近的測站
-        if (selectionMode === 'auto' && mappedStations.length > 0) {
-          setSelectedStation(mappedStations[0].id || mappedStations[0].name)
+        // 設定最近的測站距離
+        if (mappedStations.length > 0) {
+          setNearestStationDistance(mappedStations[0].distance || null)
+          
+          // 設定最近的5個測站
+          setNearestFiveStations(mappedStations.slice(0, 5))
+          
+          // 自動模式下選擇最近的測站
+          if (selectionMode === 'auto') {
+            setSelectedStation(mappedStations[0].id || mappedStations[0].name)
+          }
         }
       } else {
         // 沒有位置信息時自動切換到手動模式
         setSelectionMode('manual')
+        setNearestFiveStations([])
+        setNearestStationDistance(null)
       }
       
       // 無論如何都更新測站列表
@@ -289,9 +302,16 @@ export default function TimelapsePage() {
       setCameraError(`獲取測站列表失敗: ${error instanceof Error ? error.message : '未知錯誤'}`)
       // 發生錯誤時強制切換到手動模式
       setSelectionMode('manual')
+      setNearestFiveStations([])
+      setNearestStationDistance(null)
     } finally {
       setIsLoadingStations(false)
     }
+  }
+  
+  // 檢查是否在雙北地區
+  const isInTaipeiRegion = (lat: number, lng: number): boolean => {
+    return lat >= 24.8 && lat <= 25.3 && lng >= 121.3 && lng <= 122.0
   }
   
   // 計算兩點之間的距離 (使用 Haversine 公式)
@@ -314,7 +334,7 @@ export default function TimelapsePage() {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation?.getCurrentPosition(resolve, reject, { 
           enableHighAccuracy: true,
-          timeout: 5000,
+          timeout: 10000,
           maximumAge: 0
         })
       })
@@ -324,10 +344,20 @@ export default function TimelapsePage() {
         longitude: position.coords.longitude
       }
       
+      // 檢查是否在雙北地區
+      if (!isInTaipeiRegion(newLocation.latitude, newLocation.longitude)) {
+        console.log('定位點不在雙北地區')
+        setCameraError('定位點不在雙北地區，請手動選擇測站')
+        setSelectionMode('manual')
+        return null
+      }
+      
       setLocation(newLocation)
       return newLocation
     } catch (error) {
       console.error('無法獲取位置信息:', error)
+      setCameraError(`無法獲取位置信息: ${error instanceof Error ? error.message : '未知錯誤'}`)
+      setSelectionMode('manual')
       return null
     }
   }
@@ -512,27 +542,50 @@ export default function TimelapsePage() {
         <div className="bg-white shadow-lg rounded-lg p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">步驟 2: 選擇測站</h2>
           
+          {/* 測站資料確認提醒 */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
+            <div className="flex items-start space-x-2">
+              <div className="text-yellow-600 text-lg flex-shrink-0">⚠️</div>
+              <div>
+                <h4 className="font-semibold text-yellow-800 text-sm mb-1">
+                  請確認測站資料
+                </h4>
+                <p className="text-yellow-700 text-xs leading-relaxed mb-2">
+                  自動定位可能有偏差，建議先至中央氣象署確認正確位置，再決定使用自動定位或手動選擇測站。
+                </p>
+                <a 
+                  href="https://codis.cwa.gov.tw/StationData" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  <span>📊 查看官方測站資料</span>
+                  <span className="text-xs">↗</span>
+                </a>
+              </div>
+            </div>
+          </div>
+          
           {/* 選擇模式切換 */}
           <div className="mb-6">
-            <div className="flex items-center justify-center space-x-4">
+            <div className="flex border-b mb-4">
               <button 
-                className={`px-4 py-2 rounded-md font-medium ${
+                onClick={() => handleModeChange('auto')} 
+                className={`flex-1 py-2 px-2 font-medium text-sm ${
                   selectionMode === 'auto' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    ? 'border-b-2 border-blue-500 text-blue-600' 
+                    : 'text-gray-500'
                 }`}
-                onClick={() => handleModeChange('auto')}
               >
-                自動選擇測站
+                自動取得測站
               </button>
-              
               <button 
-                className={`px-4 py-2 rounded-md font-medium ${
+                onClick={() => handleModeChange('manual')} 
+                className={`flex-1 py-2 px-2 font-medium text-sm ${
                   selectionMode === 'manual' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    ? 'border-b-2 border-blue-500 text-blue-600' 
+                    : 'text-gray-500'
                 }`}
-                onClick={() => handleModeChange('manual')}
               >
                 手動選擇測站
               </button>
@@ -540,7 +593,7 @@ export default function TimelapsePage() {
             
             {selectionMode === 'auto' && location && (
               <p className="mt-2 text-sm text-green-600 text-center">
-                系統將根據您的位置自動選擇最近的測站
+                系統已根據您的位置自動選擇最近的測站
               </p>
             )}
             
@@ -551,35 +604,104 @@ export default function TimelapsePage() {
             )}
           </div>
           
-          {/* 測站選擇 */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {selectionMode === 'auto' ? '最近的測站' : '選擇測站'}
-            </label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* 左側：選擇測站 */}
+            <div>
+              {selectionMode === 'auto' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    最近的測站
+                  </label>
+                  {isLoadingStations ? (
+                    <div className="py-2 text-gray-600">載入測站中...</div>
+                  ) : (
+                    <div className="px-3 py-2 border rounded bg-gray-100 text-gray-800">
+                      {location && stations.length > 0 ? (
+                        <div>
+                          <div className="font-medium">{stations[0].name}</div>
+                          {nearestStationDistance !== null && (
+                            <div className="text-xs text-gray-600">
+                              距離: {nearestStationDistance.toFixed(2)} 公里
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-500">(尚未定位)</span>
+                      )}
+                    </div>
+                  )}
+                  <button
+                    onClick={getCurrentLocation}
+                    disabled={isLoadingStations}
+                    className="mt-3 w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium py-2 rounded text-sm"
+                  >
+                    {isLoadingStations ? '取得定位中...' : '重新取得定位'}
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    選擇測站
+                  </label>
+                  {isLoadingStations ? (
+                    <div className="py-2 text-gray-600">載入測站中...</div>
+                  ) : (
+                    <select
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      value={selectedStation}
+                      onChange={(e) => setSelectedStation(e.target.value)}
+                    >
+                      <option value="定時拍攝">定時拍攝 (預設)</option>
+                      {stations.map((station) => (
+                        <option key={station.id || station.name} value={station.id || station.name}>
+                          {station.name} {station.distance !== undefined ? `(${station.distance.toFixed(2)} 公里)` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+            </div>
             
-            {isLoadingStations ? (
-              <div className="py-2 text-gray-600">載入測站中...</div>
-            ) : (
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                value={selectedStation}
-                onChange={(e) => setSelectedStation(e.target.value)}
-                disabled={selectionMode === 'auto' && location !== null && stations.length > 0}
-              >
-                <option value="定時拍攝">定時拍攝 (預設)</option>
-                {stations.map((station) => (
-                  <option key={station.id || station.name} value={station.id || station.name}>
-                    {station.name} {station.distance !== undefined ? `(${station.distance.toFixed(2)} 公里)` : ''}
-                  </option>
-                ))}
-              </select>
-            )}
-            
-            {selectionMode === 'auto' && location && stations.length > 0 && (
-              <p className="mt-2 text-xs text-blue-600">
-                已自動選擇最近的測站：{stations[0].name} ({stations[0].distance?.toFixed(2)} 公里)
-              </p>
-            )}
+            {/* 右側：最近的測站列表 */}
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">最近的五個測站</h3>
+              {nearestFiveStations.length > 0 ? (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {nearestFiveStations.map((station, index) => (
+                    <div
+                      key={station.id}
+                      className={`p-2 rounded-lg border ${
+                        index === 0 
+                          ? 'bg-blue-50 border-blue-300' 
+                          : 'bg-gray-50 border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className={`text-sm font-medium ${index === 0 ? 'text-blue-800' : 'text-gray-800'}`}>
+                            {index === 0 && '🏆 '}{station.name}
+                          </div>
+                          <div className="text-xs text-gray-600">
+                            距離: {station.distance?.toFixed(2)} 公里
+                          </div>
+                        </div>
+                        <div className={`text-sm font-bold ${
+                          index === 0 ? 'text-blue-600' : 'text-gray-400'
+                        }`}>
+                          #{index + 1}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center text-gray-500 py-4 border rounded bg-gray-50">
+                  <div className="text-2xl mb-1">📍</div>
+                  <div className="text-sm">尚未取得測站資料</div>
+                </div>
+              )}
+            </div>
           </div>
           
           {/* 地理位置狀態 */}
@@ -647,17 +769,44 @@ export default function TimelapsePage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               disabled={isCapturing}
             />
+            <p className="mt-1 text-xs text-gray-500">
+              設定每隔多少分鐘自動拍攝一次照片 (1-60 分鐘)
+            </p>
           </div>
           
           {/* 設定摘要 */}
           <div className="p-4 bg-gray-50 rounded-lg mb-6">
             <h3 className="font-semibold mb-2">拍攝設定</h3>
-            <ul className="space-y-1">
-              <li>測站: <span className="font-medium">{selectedStation}</span></li>
-              <li>拍攝間隔: <span className="font-medium">{captureInterval} 分鐘</span></li>
-              {location && (
-                <li>地理位置: <span className="font-medium">已記錄</span></li>
-              )}
+            <ul className="space-y-2">
+              <li className="flex items-start">
+                <span className="w-20 text-gray-600">測站:</span>
+                <div className="font-medium">
+                  <div>{selectedStation}</div>
+                  {selectionMode === 'auto' && nearestStationDistance !== null && (
+                    <div className="text-xs text-gray-600">
+                      距離約 {nearestStationDistance.toFixed(2)} 公里
+                    </div>
+                  )}
+                </div>
+              </li>
+              <li className="flex items-start">
+                <span className="w-20 text-gray-600">拍攝間隔:</span>
+                <span className="font-medium">{captureInterval} 分鐘</span>
+              </li>
+              <li className="flex items-start">
+                <span className="w-20 text-gray-600">地理位置:</span>
+                {location ? (
+                  <span className="font-medium">
+                    已記錄 (緯度 {location.latitude.toFixed(6)}, 經度 {location.longitude.toFixed(6)})
+                  </span>
+                ) : (
+                  <span className="text-yellow-600">未記錄</span>
+                )}
+              </li>
+              <li className="flex items-start">
+                <span className="w-20 text-gray-600">選擇模式:</span>
+                <span className="font-medium">{selectionMode === 'auto' ? '自動選擇' : '手動選擇'}</span>
+              </li>
             </ul>
           </div>
           
