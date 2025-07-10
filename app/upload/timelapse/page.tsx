@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+// import { supabase } from '@/lib/supabaseClient'
 
 export default function TimelapsePage() {
   const videoRef = useRef<HTMLVideoElement>(null)
