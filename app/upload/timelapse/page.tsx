@@ -35,6 +35,13 @@ export default function TimelapsePage() {
     distance?: number;
   }
 
+  // 定義API返回的測站資料類型
+  type StationApiData = {
+    station_name: string;
+    latitude?: number;
+    longitude?: number;
+  }
+
   // 啟動攝影機
   const startCamera = async (deviceId?: string) => {
     try {
@@ -237,11 +244,19 @@ export default function TimelapsePage() {
         throw new Error('無法獲取測站列表')
       }
       
-      const data = await response.json()
+      const apiData = await response.json()
+      
+      // 將API返回的數據映射到我們的Station類型
+      const stations = apiData.map((item: StationApiData) => ({
+        id: item.station_name, // 使用station_name作為ID
+        name: item.station_name,
+        latitude: item.latitude,
+        longitude: item.longitude
+      }))
       
       // 如果有位置信息，計算距離並排序
       if (location) {
-        const stationsWithDistance = data.stations.map((station: Station) => {
+        const stationsWithDistance = stations.map((station: Station) => {
           // 計算與當前位置的距離
           const distance = calculateDistance(
             location.latitude, 
@@ -263,7 +278,7 @@ export default function TimelapsePage() {
           setSelectedStation(stationsWithDistance[0].id || stationsWithDistance[0].name)
         }
       } else {
-        setStations(data.stations as Station[])
+        setStations(stations)
       }
     } catch (error) {
       console.error('獲取測站列表失敗:', error)
