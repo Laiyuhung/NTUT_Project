@@ -421,9 +421,9 @@ export default function TimelapsePage() {
       await fetchStations()
       
       // 若無法獲取位置，自動切換到手動模式
-      if (!locationData) {
-        setSelectionMode('manual')
-      }
+      // if (!locationData) {
+      //   setSelectionMode('manual')
+      // }
     }
     
     // 執行初始化
