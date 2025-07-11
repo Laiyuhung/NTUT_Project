@@ -415,15 +415,15 @@ export default function TimelapsePage() {
       setSelectionMode('auto')
       
       // 獲取當前位置
-      // const locationData = await getCurrentLocation()
+      const locationData = await getCurrentLocation()
       
       // 無論是否獲取到位置，都嘗試獲取測站列表
       await fetchStations()
       
       // 若無法獲取位置，自動切換到手動模式
-      // if (!locationData) {
-      //   setSelectionMode('manual')
-      // }
+      if (!locationData) {
+        setSelectionMode('manual')
+      }
     }
     
     // 執行初始化
