@@ -415,7 +415,7 @@ export default function TimelapsePage() {
       setSelectionMode('auto')
       
       // 獲取當前位置
-      const locationData = await getCurrentLocation()
+      // const locationData = await getCurrentLocation()
       
       // 無論是否獲取到位置，都嘗試獲取測站列表
       await fetchStations()
