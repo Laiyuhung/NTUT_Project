@@ -212,6 +212,77 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
     )
   }
 
+  // 處理刪除照片
+  const handleDeletePhoto = async (photoId: string) => {
+    if (!confirm('確定要刪除這張照片嗎？此操作無法復原。')) {
+      return
+    }
+
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/photos`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoId })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP ${response.status}`)
+      }
+
+      // 刪除成功，更新本地數據
+      setPhotos(prevPhotos => prevPhotos.filter(photo => photo.id !== photoId))
+      setSelectedPhotos(prev => prev.filter(id => id !== photoId))
+      alert('照片已成功刪除')
+    } catch (error) {
+      console.error('刪除照片失敗：', error)
+      const errorMessage = error instanceof Error ? error.message : '未知錯誤'
+      alert(`刪除照片失敗：${errorMessage}`)
+      setError(`刪除照片失敗：${errorMessage}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 處理批次刪除照片
+  const handleBatchDeletePhotos = async () => {
+    if (selectedPhotos.length === 0) {
+      alert('請選擇要刪除的照片')
+      return
+    }
+
+    if (!confirm(`確定要刪除選中的 ${selectedPhotos.length} 張照片嗎？此操作無法復原。`)) {
+      return
+    }
+
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/photos`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoIds: selectedPhotos })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP ${response.status}`)
+      }
+
+      // 刪除成功，更新本地數據
+      setPhotos(prevPhotos => prevPhotos.filter(photo => !selectedPhotos.includes(photo.id)))
+      setSelectedPhotos([])
+      alert(`已成功刪除 ${selectedPhotos.length} 張照片`)
+    } catch (error) {
+      console.error('批次刪除照片失敗：', error)
+      const errorMessage = error instanceof Error ? error.message : '未知錯誤'
+      alert(`批次刪除照片失敗：${errorMessage}`)
+      setError(`批次刪除照片失敗：${errorMessage}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // 處理CSV選擇
   const handleCsvSelect = (csvId: string) => {
     setSelectedCsvs(prev => 
@@ -370,7 +441,7 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
         console.log('========================')
         return result
       } else {
-        // 如果正則匹配失敗，回退到原來的方法
+        // 如果正則匹配失敗，回退到原来的方法
         const date = new Date(dateString)
         console.log('Date 物件:', date)
         console.log('UTC 時間:', date.toISOString())
@@ -538,18 +609,33 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
                 className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
               >
                 取消全選
-              </button>              <button
+              </button>
+              
+              <button
                 onClick={handlePhotoBatchDownload}
                 disabled={selectedPhotos.length === 0 || downloading}
                 className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-4 py-2 rounded flex items-center gap-2"
               >
-                {downloading ? (
-                  <>
-                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                    下載中...
-                  </>
-                ) : (
-                  `批次下載 (${selectedPhotos.length})`
+                {downloading ? '下載中...' : '批次下載選中照片'}
+                {downloading && (
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                )}
+              </button>
+              
+              <button
+                onClick={handleBatchDeletePhotos}
+                disabled={selectedPhotos.length === 0 || loading}
+                className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white px-4 py-2 rounded flex items-center gap-2"
+              >
+                {loading ? '刪除中...' : '批次刪除選中照片'}
+                {loading && (
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
                 )}
               </button>
             </div>
@@ -621,10 +707,16 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
                           <a 
                             href={photo.file_url}
                             download={photo.filename}
-                            className="text-blue-600 hover:text-blue-800 text-sm"
+                            className="text-blue-600 hover:text-blue-800 text-sm mr-4"
                           >
                             下載
                           </a>
+                          <button
+                            onClick={() => handleDeletePhoto(photo.id)}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                          >
+                            刪除
+                          </button>
                         </td>
                       </tr>
                     ))}

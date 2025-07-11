@@ -87,3 +87,111 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: '獲取照片清單失敗' }, { status: 500 })
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { photoId, photoIds } = body
+
+    // 支持單張照片刪除或批量刪除
+    const idsToDelete = photoIds || (photoId ? [photoId] : [])
+
+    if (idsToDelete.length === 0) {
+      return NextResponse.json({ error: '未提供要刪除的照片 ID' }, { status: 400 })
+    }
+
+    console.log('準備刪除照片：', idsToDelete)
+
+    // 1. 獲取照片的檔案路徑信息
+    const { data: photos, error: queryError } = await supabase
+      .from('photos')
+      .select('id, file_url')
+      .in('id', idsToDelete)
+
+    if (queryError) {
+      console.error('查詢照片資訊失敗：', queryError)
+      return NextResponse.json({ 
+        error: '查詢照片資訊失敗', 
+        details: queryError.message 
+      }, { status: 500 })
+    }
+
+    // 檢查找到的照片數量是否與請求的數量一致
+    if (!photos || photos.length === 0) {
+      return NextResponse.json({ error: '找不到指定的照片' }, { status: 404 })
+    }
+
+    console.log('找到的照片資訊：', photos)
+
+    // 收集 Storage 中需要刪除的檔案路徑
+    const filesToDelete = photos.map(photo => {
+      let filePath = photo.file_url || ''
+      
+      // 從 URL 中提取檔案路徑
+      if (filePath.includes('storage/v1/object/public/')) {
+        const match = filePath.match(/storage\/v1\/object\/public\/uploads\/(.+)/)
+        if (match && match[1]) {
+          return match[1]
+        }
+      }
+      
+      // 直接使用相對路徑
+      if (!filePath.startsWith('http') && !filePath.startsWith('/')) {
+        return `photos/${filePath}`
+      }
+      
+      // 清理路徑：移除開頭的 / 如果存在
+      if (filePath.startsWith('/')) {
+        filePath = filePath.substring(1)
+      }
+      
+      // 如果路徑不包含 photos/，則添加它
+      if (!filePath.startsWith('photos/')) {
+        filePath = `photos/${filePath}`
+      }
+      
+      return filePath
+    }).filter(Boolean) // 過濾空值
+    
+    console.log('需要從 Storage 刪除的檔案路徑：', filesToDelete)
+
+    // 2. 從 Storage 刪除檔案
+    if (filesToDelete.length > 0) {
+      const { data: deleteStorageData, error: deleteStorageError } = await supabase
+        .storage
+        .from('uploads')
+        .remove(filesToDelete)
+
+      if (deleteStorageError) {
+        console.error('從 Storage 刪除檔案失敗：', deleteStorageError)
+        // 不中斷流程，繼續刪除數據庫記錄
+      } else {
+        console.log('Storage 檔案刪除結果：', deleteStorageData)
+      }
+    }
+
+    // 3. 從數據庫刪除記錄
+    const { error: deleteError } = await supabase
+      .from('photos')
+      .delete()
+      .in('id', idsToDelete)
+
+    if (deleteError) {
+      console.error('刪除照片數據記錄失敗：', deleteError)
+      return NextResponse.json({ 
+        error: '刪除照片數據記錄失敗', 
+        details: deleteError.message 
+      }, { status: 500 })
+    }
+
+    return NextResponse.json({ 
+      success: true,
+      message: `成功刪除 ${idsToDelete.length} 張照片`,
+      deletedIds: idsToDelete
+    })
+  } catch (error) {
+    console.error('刪除照片時發生錯誤：', error)
+    const errorMessage = error instanceof Error ? error.message : '未知錯誤'
+    return NextResponse.json({ error: `刪除照片失敗: ${errorMessage}` }, { status: 500 })
+  }
+}
