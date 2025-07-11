@@ -152,7 +152,7 @@ export default function TimelapsePage() {
       // 創建 FormData 對象用於上傳
       const formData = new FormData()
       formData.append('file', new File([blob], fileName, { type: 'image/jpeg' }))
-      formData.append('taken_at', timestamp.toISOString())
+      formData.append('taken_at', timestamp.toISOString().replace('Z', '+00:00'))
       
       // 添加位置和測站信息
       if (location) {
