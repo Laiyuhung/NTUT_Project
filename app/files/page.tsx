@@ -693,7 +693,7 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
                               onLoad={() => {
                                 console.log('表格圖片載入成功:', photo.filename)
                               }}
-                              loading="lazy"
+                              loading="lazy" 
                             />
                           </div>
                         </td>
