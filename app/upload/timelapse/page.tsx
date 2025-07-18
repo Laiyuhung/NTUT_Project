@@ -671,12 +671,26 @@ export default function TimelapsePage() {
                       value={selectedStation}
                       onChange={(e) => setSelectedStation(e.target.value)}
                     >
-                      <option value="定時拍攝">定時拍攝 (預設)</option>
-                      {stations.map((station) => (
-                        <option key={station.id || station.name} value={station.id || station.name}>
-                          {station.name} {station.distance !== undefined ? `(${station.distance.toFixed(2)} 公里)` : ''}
+                      {/* 預設選項為最近五個測站的第一個 */}
+                      {nearestFiveStations.length > 0 ? (
+                        <option value={nearestFiveStations[0].id || nearestFiveStations[0].name}>
+                          {nearestFiveStations[0].name} {nearestFiveStations[0].distance !== undefined ? `(${nearestFiveStations[0].distance.toFixed(2)} 公里)` : ''}
                         </option>
-                      ))}
+                      ) : (
+                        <option value="定時拍攝">定時拍攝 (預設)</option>
+                      )}
+                      {/* 其他測站選項（排除第一個） */}
+                      {stations
+                        .filter(
+                          (station) =>
+                            nearestFiveStations.length === 0 ||
+                            station.id !== nearestFiveStations[0].id
+                        )
+                        .map((station) => (
+                          <option key={station.id || station.name} value={station.id || station.name}>
+                            {station.name} {station.distance !== undefined ? `(${station.distance.toFixed(2)} 公里)` : ''}
+                          </option>
+                        ))}
                     </select>
                   )}
                 </div>
