@@ -145,14 +145,16 @@ export default function TimelapsePage() {
         return previewUrl
       }
       
-      // 創建唯一文件名和日期時間
-      const timestamp = new Date()
-      const fileName = `timelapse_${timestamp.toISOString().replace(/[:.]/g, '-')}.jpg`
+      // 創建唯一文件名和日期時間 (使用台灣時間 UTC+8)
+      const utc = new Date()
+      utc.setHours(utc.getHours() + 8) // 加上台灣時區偏移
+      const taipeiTime = utc.toISOString().slice(0, 16)
+      const fileName = `timelapse_${utc.toISOString().replace(/[:.]/g, '-')}.jpg`
       
       // 創建 FormData 對象用於上傳
       const formData = new FormData()
       formData.append('file', new File([blob], fileName, { type: 'image/jpeg' }))
-      formData.append('taken_at', timestamp.toISOString().replace('Z', '+00:00'))
+      formData.append('taken_at', taipeiTime)
       
       // 添加位置和測站信息
       if (location) {
@@ -189,9 +191,11 @@ export default function TimelapsePage() {
       // 創建預覽 URL
       const previewUrl = URL.createObjectURL(blob)
       
-      // 添加到歷史記錄
+      // 添加到歷史記錄 (使用台灣時間)
+      const captureTime = new Date()
+      captureTime.setHours(captureTime.getHours() + 8) // 加上台灣時區偏移
       setCaptureHistory(prev => [
-        { time: new Date().toLocaleTimeString(), url: previewUrl },
+        { time: captureTime.toLocaleTimeString('zh-TW'), url: previewUrl },
         ...prev.slice(0, 9) // 只保留最近的 10 張照片
       ])
       
