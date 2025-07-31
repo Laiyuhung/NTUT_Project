@@ -99,6 +99,13 @@ export default function AnalysisPage() {
   const [batchAnalysisLoading, setBatchAnalysisLoading] = useState<boolean>(false);
   const [batchAnalysisResults, setBatchAnalysisResults] = useState<BatchAnalysisResult[]>([]);
   const [showBatchResults, setShowBatchResults] = useState<boolean>(false);
+  const [showModelManager, setShowModelManager] = useState<boolean>(false);
+  
+  // 模型上傳與管理相關狀態
+  const [modelFile, setModelFile] = useState<File | null>(null);
+  const [uploadingModel, setUploadingModel] = useState<boolean>(false);
+  const [activeModel, setActiveModel] = useState<string | null>(null);
+  const [availableModels, setAvailableModels] = useState<{id: string, name: string, uploaded_at: string}[]>([]);
 
   // 獲取照片與氣象數據
   const fetchPhotoData = async () => {
@@ -305,6 +312,11 @@ export default function AnalysisPage() {
     try {
       const formData = new FormData();
       formData.append('photoIds', JSON.stringify(selectedPhotos));
+      
+      // 如果有選擇的活躍模型，將其ID傳遞給後端API
+      if (activeModel) {
+        formData.append('modelId', activeModel);
+      }
 
       const response = await fetch('/api/analysis/weather-photos', {
         method: 'POST',
@@ -330,9 +342,96 @@ export default function AnalysisPage() {
   };
 
   // 在組件載入時獲取數據
+  // 獲取已上傳的模型列表
+  const fetchAvailableModels = async () => {
+    try {
+      const response = await fetch('/api/models');
+      if (!response.ok) throw new Error('無法獲取模型列表');
+      
+      const modelsData = await response.json();
+      setAvailableModels(modelsData);
+      
+      // 如果有活躍模型標記，設置為活躍
+      if (modelsData.some((model: any) => model.is_active)) {
+        const activeModelData = modelsData.find((model: any) => model.is_active);
+        setActiveModel(activeModelData?.id || null);
+      }
+    } catch (err) {
+      console.error('獲取模型列表失敗:', err);
+      setError(`獲取模型列表失敗: ${err instanceof Error ? err.message : '未知錯誤'}`);
+    }
+  };
+  
+  // 上傳模型檔案
+  const uploadModelFile = async () => {
+    if (!modelFile) {
+      setError('請先選擇模型檔案');
+      return;
+    }
+    
+    setUploadingModel(true);
+    try {
+      const formData = new FormData();
+      formData.append('model', modelFile);
+      
+      const response = await fetch('/api/upload-model', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error(`上傳失敗: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      if (result.success) {
+        // 重新獲取模型列表
+        fetchAvailableModels();
+        setModelFile(null);
+      } else {
+        throw new Error(result.message || '上傳模型失敗');
+      }
+    } catch (err) {
+      console.error('模型上傳失敗:', err);
+      setError(`模型上傳失敗: ${err instanceof Error ? err.message : '未知錯誤'}`);
+    } finally {
+      setUploadingModel(false);
+    }
+  };
+  
+  // 設置活躍模型
+  const setModelAsActive = async (modelId: string) => {
+    try {
+      const response = await fetch('/api/set-active-model', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ modelId }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`設置失敗: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      if (result.success) {
+        setActiveModel(modelId);
+        // 更新可用模型列表
+        fetchAvailableModels();
+      } else {
+        throw new Error(result.message || '設置活躍模型失敗');
+      }
+    } catch (err) {
+      console.error('設置活躍模型失敗:', err);
+      setError(`設置活躍模型失敗: ${err instanceof Error ? err.message : '未知錯誤'}`);
+    }
+  };
+
   useEffect(() => {
     fetchPhotoData();
     fetchPhotos();
+    fetchAvailableModels();
   }, []);
   
   // 當過濾器改變時應用過濾
@@ -361,6 +460,11 @@ export default function AnalysisPage() {
     try {
       const formData = new FormData();
       formData.append('photo', uploadedFile);
+      
+      // 如果有選擇的活躍模型，將其ID傳遞給後端API
+      if (activeModel) {
+        formData.append('modelId', activeModel);
+      }
 
       const response = await fetch('/api/analysis/weather-photos', {
         method: 'POST',
@@ -415,9 +519,12 @@ export default function AnalysisPage() {
       {/* 頁籤切換 */}
       <div className="flex border-b mb-6 bg-white rounded-t-lg">
         <button 
-          onClick={() => setShowBatchResults(false)} 
+          onClick={() => {
+            setShowBatchResults(false);
+            setShowModelManager(false);
+          }} 
           className={`flex-1 py-3 px-4 font-medium ${
-            !showBatchResults 
+            !showBatchResults && !showModelManager
               ? 'border-b-2 border-blue-500 text-blue-600 bg-blue-50' 
               : 'text-gray-500 hover:text-gray-700'
           }`}
@@ -425,18 +532,160 @@ export default function AnalysisPage() {
           📸 單張照片分析
         </button>
         <button 
-          onClick={() => setShowBatchResults(true)} 
+          onClick={() => {
+            setShowBatchResults(true);
+            setShowModelManager(false);
+          }} 
           className={`flex-1 py-3 px-4 font-medium ${
-            showBatchResults 
+            showBatchResults && !showModelManager
               ? 'border-b-2 border-blue-500 text-blue-600 bg-blue-50' 
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
           📊 批次照片分析
         </button>
+        <button 
+          onClick={() => {
+            setShowBatchResults(false);
+            setShowModelManager(true);
+          }} 
+          className={`flex-1 py-3 px-4 font-medium ${
+            showModelManager
+              ? 'border-b-2 border-blue-500 text-blue-600 bg-blue-50' 
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          🧠 模型管理
+        </button>
       </div>
       
-      {!showBatchResults ? (
+      {showModelManager ? (
+        /* 模型管理區 */
+        <div className="bg-white shadow-lg rounded-lg p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">YOLO 雲型辨識模型管理</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="font-semibold mb-3">上傳新模型</h3>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 mb-4 flex flex-col items-center justify-center">
+                {modelFile ? (
+                  <div className="text-center py-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-green-500 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-green-600 font-medium">已選擇模型: {modelFile.name}</p>
+                    <p className="text-gray-500 text-sm mt-1">檔案大小: {(modelFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <p className="text-gray-500">選擇或拖曳 .pt YOLO 模型檔案</p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex flex-col space-y-3">
+                <input 
+                  type="file" 
+                  accept=".pt"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      setModelFile(e.target.files[0]);
+                    }
+                  }}
+                  className="block w-full text-sm text-gray-500
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-md file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-blue-50 file:text-blue-700
+                    hover:file:bg-blue-100"
+                />
+                <button 
+                  onClick={uploadModelFile}
+                  disabled={!modelFile || uploadingModel}
+                  className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400"
+                >
+                  {uploadingModel ? '上傳中...' : '上傳模型'}
+                </button>
+                <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
+                  <p className="text-xs text-yellow-700">
+                    <span className="font-medium">注意:</span> 請上傳已訓練好的 YOLOv5、YOLOv8 等格式的 .pt 模型檔案。
+                    建議使用針對雲型辨識訓練的模型以獲得最佳效果。
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h3 className="font-semibold mb-3">可用模型列表</h3>
+              {availableModels.length > 0 ? (
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">模型名稱</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">上傳日期</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">狀態</th>
+                        <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {availableModels.map((model) => (
+                        <tr key={model.id}>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{model.name}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">
+                            {new Date(model.uploaded_at).toLocaleString('zh-TW')}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {activeModel === model.id ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <span className="w-2 h-2 mr-1 bg-green-500 rounded-full"></span>
+                                使用中
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                未使用
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right">
+                            {activeModel !== model.id ? (
+                              <button 
+                                onClick={() => setModelAsActive(model.id)}
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                設為使用中
+                              </button>
+                            ) : (
+                              <span className="text-gray-400">已啟用</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg border border-gray-200">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                  <p className="text-gray-500">目前沒有可用的模型</p>
+                </div>
+              )}
+              
+              <div className="mt-4 bg-blue-50 rounded-lg p-3 border border-blue-200">
+                <h4 className="text-sm font-medium text-blue-800 mb-1">模型說明</h4>
+                <p className="text-xs text-blue-600">
+                  當您設定模型為「使用中」狀態後，系統將在雲型分析時使用該模型進行預測。
+                  若無使用中的模型，系統將使用預設的模型進行預測。
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : !showBatchResults ? (
         /* 雲型分析上傳區 - 單張照片 */
         <div className="bg-white shadow-lg rounded-lg p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">雲型辨識分析</h2>
@@ -479,8 +728,24 @@ export default function AnalysisPage() {
                 >
                   {analysisLoading ? '分析中...' : '分析雲型'}
                 </button>
-                <p className="text-xs text-gray-500 text-center">
-                  本功能使用基於 YOLO 的雲型辨識模型，依照亮度特性進行優化
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-xs text-gray-500">
+                    使用基於 YOLO 的雲型辨識模型
+                  </p>
+                  {activeModel ? (
+                    <div className="flex items-center">
+                      <span className="h-2 w-2 bg-green-500 rounded-full mr-1"></span>
+                      <span className="text-xs text-green-700">使用自訂模型</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center">
+                      <span className="h-2 w-2 bg-gray-500 rounded-full mr-1"></span>
+                      <span className="text-xs text-gray-700">使用預設模型</span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-blue-500 text-center cursor-pointer hover:underline mt-1" onClick={() => setShowModelManager(true)}>
+                  點擊這裡管理模型
                 </p>
               </div>
             </div>

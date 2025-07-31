@@ -247,6 +247,34 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const photoFile = formData.get('photo') as File;
     const photoIds = formData.get('photoIds') as string;
+    const modelId = formData.get('modelId') as string;
+    
+    // 如果提供了模型ID，獲取該模型的資訊
+    let modelUrl: string | null = null;
+    if (modelId) {
+      const { data: modelData, error: modelError } = await supabase
+        .from('models')
+        .select('file_url')
+        .eq('id', modelId)
+        .single();
+        
+      if (!modelError && modelData) {
+        modelUrl = modelData.file_url;
+      }
+    }
+    
+    // 如果沒有指定模型ID，或者獲取模型資訊失敗，嘗試獲取活躍模型
+    if (!modelUrl) {
+      const { data: activeModelData, error: activeModelError } = await supabase
+        .from('models')
+        .select('file_url')
+        .eq('is_active', true)
+        .single();
+        
+      if (!activeModelError && activeModelData) {
+        modelUrl = activeModelData.file_url;
+      }
+    }
 
     // 如果提供了照片ID列表，從數據庫獲取這些照片並分析
     if (photoIds) {
@@ -269,6 +297,13 @@ export async function POST(request: Request) {
         // 分析所有照片並返回結果
         const results = await Promise.all(photos.map(async (photo) => {
           // 這裡實際應用中會調用 YOLO 模型進行分析
+          // 檢查是否有可用的自訂模型
+          console.log(`批次分析使用的模型URL: ${modelUrl || '預設模型'}`);
+          
+          // 如果有自訂模型URL，可以將URL傳遞給實際的模型API
+          // const modelToUse = modelUrl || 'default_model_path.pt';
+          // 調用 Python API 進行預測，並傳遞模型 URL
+          
           // 目前使用模擬數據
           const mockPredictions = [
             { class_id: Math.floor(Math.random() * cloudTypes.length), confidence: 0.85 },
@@ -365,6 +400,12 @@ export async function POST(request: Request) {
     // const buffer = Buffer.from(arrayBuffer);
     
     // 實際應用中，這裡應該調用 Python 的 YOLO 模型 API
+    // 檢查是否有可用的自訂模型
+    console.log(`分析使用的模型URL: ${modelUrl || '預設模型'}`);
+    
+    // 如果有自訂模型URL，可以將URL傳遞給實際的模型API
+    // const modelToUse = modelUrl || 'default_model_path.pt';
+    // 調用 Python API 進行預測: fetch('http://your-ml-api/predict', { body: formData, method: 'POST' })
     // 模擬雲型識別結果 (實際環境中這應該是由您的 YOLO 模型提供)
     const mockPredictions = [
       { class_id: Math.floor(Math.random() * cloudTypes.length), confidence: 0.85 },
