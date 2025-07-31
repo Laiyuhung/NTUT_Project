@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const fileName = `models/${uuidv4()}-${modelFile.name}`;
     
     // 上傳模型到 Storage
-    const { data: fileData, error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('yolo-models')
       .upload(fileName, modelFile);
       

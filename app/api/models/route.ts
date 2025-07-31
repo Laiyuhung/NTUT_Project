@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
 
 // 獲取已上傳的模型列表
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // 從模型資料表中獲取模型列表
     const { data, error } = await supabase

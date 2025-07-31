@@ -101,11 +101,22 @@ export default function AnalysisPage() {
   const [showBatchResults, setShowBatchResults] = useState<boolean>(false);
   const [showModelManager, setShowModelManager] = useState<boolean>(false);
   
+  // 定義模型類型
+  type ModelRecord = {
+    id: string;
+    name: string;
+    uploaded_at: string;
+    is_active?: boolean;
+    file_url?: string;
+    file_path?: string;
+    file_size?: number;
+  };
+  
   // 模型上傳與管理相關狀態
   const [modelFile, setModelFile] = useState<File | null>(null);
   const [uploadingModel, setUploadingModel] = useState<boolean>(false);
   const [activeModel, setActiveModel] = useState<string | null>(null);
-  const [availableModels, setAvailableModels] = useState<{id: string, name: string, uploaded_at: string}[]>([]);
+  const [availableModels, setAvailableModels] = useState<ModelRecord[]>([]);
 
   // 獲取照片與氣象數據
   const fetchPhotoData = async () => {
@@ -348,12 +359,12 @@ export default function AnalysisPage() {
       const response = await fetch('/api/models');
       if (!response.ok) throw new Error('無法獲取模型列表');
       
-      const modelsData = await response.json();
+      const modelsData: ModelRecord[] = await response.json();
       setAvailableModels(modelsData);
       
       // 如果有活躍模型標記，設置為活躍
-      if (modelsData.some((model: any) => model.is_active)) {
-        const activeModelData = modelsData.find((model: any) => model.is_active);
+      if (modelsData.some((model: ModelRecord) => model.is_active)) {
+        const activeModelData = modelsData.find((model: ModelRecord) => model.is_active);
         setActiveModel(activeModelData?.id || null);
       }
     } catch (err) {
