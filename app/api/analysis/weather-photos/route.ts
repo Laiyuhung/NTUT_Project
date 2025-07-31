@@ -253,7 +253,7 @@ export async function POST(request: Request) {
 
     // 將照片轉為 ArrayBuffer 以便處理亮度
     const arrayBuffer = await photoFile.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    // const buffer = Buffer.from(arrayBuffer);
     
     // 在實際應用中，我們會使用 buffer 來計算亮度和進行雲型識別
     // const imageProcessor = new ImageProcessor(buffer); // 實際使用時取消註釋
