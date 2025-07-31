@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
     
     const formData = await request.formData();
     const modelFile = formData.get('model') as File;
+    const originalFileName = formData.get('originalFileName') as string || '';
     
     if (!modelFile) {
       return NextResponse.json(
@@ -31,20 +32,30 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // 驗證文件是否為 .pt 模型
-    if (!modelFile.name.endsWith('.pt')) {
+    // 確認文件類型
+    let modelFileName;
+    if (modelFile.name.endsWith('.zip')) {
+      // 如果是壓縮文件，我們直接上傳壓縮文件
+      // 在這個簡化的版本中，我們接受壓縮文件並相信客戶端已經提供了原始文件名
+      modelFileName = originalFileName || 'unknown-model.pt';
+    } else if (modelFile.name.endsWith('.pt')) {
+      // 如果是pt文件，直接使用
+      modelFileName = modelFile.name;
+    } else {
       return NextResponse.json(
-        { error: '只支援 .pt 模型檔案' },
+        { error: '只支援 .pt 模型文件或包含 .pt 文件的壓縮包' },
         { status: 400 }
       );
     }
-
-    // 檔案名稱 - 存放在與 CSV 和照片相同層級的 models 文件夾
-    const fileName = `models/${uuidv4()}-${modelFile.name}`;
     
-    // 上傳模型到 Storage - 使用分塊上傳以支持大文件
-    const arrayBuffer = await modelFile.arrayBuffer();
-    const fileBuffer = new Uint8Array(arrayBuffer);
+    // 獲取文件內容
+    const fileArrayBuffer = await modelFile.arrayBuffer();
+    const fileBuffer = new Uint8Array(fileArrayBuffer);
+    
+    // 檔案名稱 - 存放在與 CSV 和照片相同層級的 models 文件夾
+    const fileName = `models/${uuidv4()}-${modelFileName}`;
+    
+    // 上傳模型到 Storage
 
     const { error: uploadError } = await supabase.storage
       .from('uploads')
@@ -69,10 +80,10 @@ export async function POST(request: NextRequest) {
       .from('models')
       .insert({
         id: uuidv4(),
-        name: modelFile.name,
+        name: modelFileName,
         file_path: fileName,
         file_url: urlData.publicUrl,
-        file_size: modelFile.size,
+        file_size: fileBuffer.length,
         is_active: false,  // 默認非活躍
       })
       .select()

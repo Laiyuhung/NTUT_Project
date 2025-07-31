@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import JSZip from 'jszip';
 
 // 定義照片類型
 type PhotoRecord = {
@@ -142,8 +143,36 @@ export default function AnalysisPage() {
     setUploadError(null);
     
     try {
+      // 壓縮文件
+      setUploadProgress(5); // 開始壓縮的進度指示
+      const zip = new JSZip();
+      
+      // 讀取模型文件
+      const modelBuffer = await modelFile.arrayBuffer();
+      
+      // 將模型添加到ZIP
+      zip.file(modelFile.name, modelBuffer);
+      
+      // 生成ZIP文件
+      setUploadProgress(20); // 壓縮中的進度指示
+      const zipBlob = await zip.generateAsync({
+        type: 'blob',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 6 } // 設置壓縮等級 (0-9)
+      }, (metadata) => {
+        // 壓縮進度更新
+        const compressProgress = Math.floor(20 + (metadata.percent * 0.3)); // 20-50% 範圍用於壓縮進度
+        setUploadProgress(compressProgress);
+      });
+      
+      setUploadProgress(50); // 壓縮完成，準備上傳
+      
+      // 創建包含壓縮文件的表單
       const formData = new FormData();
-      formData.append('model', modelFile);
+      // 使用原始文件名但添加.zip擴展名
+      const zipFileName = modelFile.name.endsWith('.zip') ? modelFile.name : `${modelFile.name}.zip`;
+      formData.append('model', new File([zipBlob], zipFileName, { type: 'application/zip' }));
+      formData.append('originalFileName', modelFile.name); // 添加原始文件名
       
       // 使用 XMLHttpRequest 來跟踪上傳進度
       const xhr = new XMLHttpRequest();
@@ -151,11 +180,12 @@ export default function AnalysisPage() {
       // 設置更長的超時時間
       xhr.timeout = 300000; // 5分鐘
       
-      // 設置進度監聽器
+      // 設置進度監聽器 - 上傳進度從50%到95%
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
-          const progress = Math.round((event.loaded / event.total) * 100);
-          setUploadProgress(progress);
+          // 上傳進度從50%開始，最高到95%（保留5%給服務器處理）
+          const uploadProgress = Math.round(50 + ((event.loaded / event.total) * 45));
+          setUploadProgress(uploadProgress);
         }
       };
       
@@ -431,7 +461,13 @@ export default function AnalysisPage() {
                     disabled={!modelFile || uploadingModel}
                     className="flex-1 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400"
                   >
-                    {uploadingModel ? `上傳中 (${uploadProgress}%)...` : '上傳模型'}
+                    {uploadingModel 
+                      ? uploadProgress < 20 
+                        ? '準備壓縮...' 
+                        : uploadProgress < 50 
+                          ? `壓縮中 (${uploadProgress}%)...` 
+                          : `上傳中 (${uploadProgress}%)...`
+                      : '上傳模型'}
                   </button>
                   
                   {uploadError && (
