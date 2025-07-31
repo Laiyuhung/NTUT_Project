@@ -52,6 +52,12 @@ export default function Navbar() {
             >
               檔案檢視
             </Link>
+            <Link 
+              href="/analysis" 
+              className="hover:text-blue-200 transition-colors duration-200 font-medium"
+            >
+              雲型分析
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -124,6 +130,13 @@ export default function Navbar() {
                 onClick={() => setIsMenuOpen(false)}
               >
                 檔案檢視
+              </Link>
+              <Link 
+                href="/analysis" 
+                className="block px-3 py-2 rounded-md text-base font-medium hover:bg-blue-800 transition-colors duration-200"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                雲型分析
               </Link>
             </div>
           </div>
