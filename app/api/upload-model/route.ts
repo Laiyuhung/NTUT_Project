@@ -22,12 +22,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 檔案名稱
+    // 檔案名稱 - 存放在與 CSV 和照片相同層級的 models 文件夾
     const fileName = `models/${uuidv4()}-${modelFile.name}`;
     
-    // 上傳模型到 Storage
+    // 上傳模型到 Storage - 改用 uploads bucket 以與 CSV 和照片保持一致
     const { error: uploadError } = await supabase.storage
-      .from('yolo-models')
+      .from('uploads')
       .upload(fileName, modelFile);
       
     if (uploadError) {
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     
     // 獲取文件公開訪問 URL
     const { data: urlData } = await supabase.storage
-      .from('yolo-models')
+      .from('uploads')
       .getPublicUrl(fileName);
       
     // 將模型資訊存儲到資料庫
