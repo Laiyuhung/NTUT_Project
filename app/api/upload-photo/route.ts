@@ -3,6 +3,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabaseClient'
 import { v4 as uuidv4 } from 'uuid'
 
+// 配置路由處理大檔案上傳
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '100mb', // 增加到100MB的限制
+    },
+  },
+};
+
 export async function POST(req: NextRequest) {
   const formData = await req.formData()
   const file = formData.get('file') as File
