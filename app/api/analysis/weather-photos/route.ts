@@ -246,23 +246,124 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const photoFile = formData.get('photo') as File;
+    const photoIds = formData.get('photoIds') as string;
 
+    // 如果提供了照片ID列表，從數據庫獲取這些照片並分析
+    if (photoIds) {
+      const ids = JSON.parse(photoIds);
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return NextResponse.json({ error: '無效的照片ID列表' }, { status: 400 });
+      }
+
+      try {
+        // 從數據庫獲取照片信息
+        const { data: photos, error } = await supabase
+          .from('photos')
+          .select('*')
+          .in('id', ids);
+
+        if (error || !photos || photos.length === 0) {
+          return NextResponse.json({ error: '獲取照片數據失敗' }, { status: 500 });
+        }
+
+        // 分析所有照片並返回結果
+        const results = await Promise.all(photos.map(async (photo) => {
+          // 這裡實際應用中會調用 YOLO 模型進行分析
+          // 目前使用模擬數據
+          const mockPredictions = [
+            { class_id: Math.floor(Math.random() * cloudTypes.length), confidence: 0.85 },
+            { class_id: Math.floor(Math.random() * cloudTypes.length), confidence: 0.65 },
+            { class_id: Math.floor(Math.random() * cloudTypes.length), confidence: 0.45 },
+          ];
+          
+          // 模擬亮度計算 (在實際項目中應該計算真實亮度)
+          const meanBrightness = Math.random() * 255;
+          
+          // 處理預測結果
+          let topPreds = mockPredictions
+            .sort((a, b) => b.confidence - a.confidence)
+            .map(p => p.class_id)
+            .slice(0, 3);
+          
+          topPreds = adjustByBrightness(topPreds, meanBrightness);
+          topPreds = applyHighLevelCloudRules(topPreds);
+          topPreds = applyMiddleLevelCloudRules(topPreds);
+          topPreds = applyLowLevelCloudRules(topPreds);
+          
+          // 將識別結果轉換為詳細資訊
+          const cloudResults = topPreds.map((classId, index) => {
+            const cloudType = cloudTypes[classId] || cloudTypes[0];
+            return {
+              id: cloudType.id,
+              name: cloudType.name,
+              description: cloudType.description,
+              confidence: mockPredictions[index]?.confidence || 0.5,
+            };
+          });
+          
+          // 生成雲型分佈
+          const distribution: Record<string, number> = {};
+          cloudTypes.forEach((cloudType) => {
+            distribution[cloudType.id] = 0.01; // 基礎概率
+          });
+          
+          // 根據預測結果增加主要雲型的概率值
+          cloudResults.forEach((result, index) => {
+            const factor = index === 0 ? 0.7 : index === 1 ? 0.2 : 0.05;
+            distribution[result.id] = result.confidence * factor;
+          });
+          
+          // 將分析結果保存到數據庫
+          const { error: insertError } = await supabase
+            .from('cloud_classification')
+            .upsert({
+              photo_id: photo.id,
+              cloud_type: cloudResults[0].id,
+              confidence: cloudResults[0].confidence,
+              cloud_distribution: JSON.stringify(distribution),
+              mean_brightness: meanBrightness,
+              analyzed_at: new Date().toISOString()
+            });
+            
+          if (insertError) {
+            console.error('保存雲型分析結果失敗:', insertError);
+          }
+          
+          return {
+            photo_id: photo.id,
+            file_url: photo.file_url,
+            filename: photo.filename,
+            success: true,
+            primaryCloudType: cloudResults[0],
+            results: cloudResults,
+            distribution,
+            meanBrightness
+          };
+        }));
+        
+        return NextResponse.json({
+          success: true,
+          batch_results: results
+        });
+      } catch (error) {
+        console.error('批量處理照片時發生錯誤:', error);
+        return NextResponse.json(
+          { error: '批量處理照片時發生錯誤' },
+          { status: 500 }
+        );
+      }
+    }
+
+    // 處理單一照片上傳
     if (!photoFile) {
       return NextResponse.json({ error: '未上傳照片' }, { status: 400 });
     }
 
     // 將照片轉為 ArrayBuffer 以便處理亮度
-    // const arrayBuffer = await photoFile.arrayBuffer();
-    // const buffer = Buffer.from(arrayBuffer);
+    const arrayBuffer = await photoFile.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
     
-    // 在實際應用中，我們會使用 buffer 來計算亮度和進行雲型識別
-    // const imageProcessor = new ImageProcessor(buffer); // 實際使用時取消註釋
-    // const meanBrightness = imageProcessor.calculateBrightness();
-    // const predictions = await modelService.predict(buffer);
-    
-    // 這裡會使用外部服務來處理圖像和進行雲型預測
-    // 實際項目中應該調用您的 YOLO 模型 API
-    
+    // 實際應用中，這裡應該調用 Python 的 YOLO 模型 API
     // 模擬雲型識別結果 (實際環境中這應該是由您的 YOLO 模型提供)
     const mockPredictions = [
       { class_id: Math.floor(Math.random() * cloudTypes.length), confidence: 0.85 },
