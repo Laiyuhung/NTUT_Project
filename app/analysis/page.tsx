@@ -148,6 +148,9 @@ export default function AnalysisPage() {
       // 使用 XMLHttpRequest 來跟踪上傳進度
       const xhr = new XMLHttpRequest();
       
+      // 設置更長的超時時間
+      xhr.timeout = 300000; // 5分鐘
+      
       // 設置進度監聽器
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -172,7 +175,6 @@ export default function AnalysisPage() {
               const response = JSON.parse(xhr.responseText) as UploadResponse;
               resolve(response);
             } catch {
-              // 不定义任何变量，直接处理错误
               reject(new Error('解析回應失敗'));
             }
           } else {
@@ -187,11 +189,15 @@ export default function AnalysisPage() {
         xhr.onabort = () => {
           reject(new Error('上傳被中斷'));
         };
+        
+        xhr.ontimeout = () => {
+          reject(new Error('上傳請求超時，文件可能太大或網絡較慢'));
+        };
+        
+        // 開始請求
+        xhr.open('POST', '/api/upload-model', true);
+        xhr.send(formData);
       });
-      
-      // 開始請求
-      xhr.open('POST', '/api/upload-model', true);
-      xhr.send(formData);
       
       // 等待上傳完成
       const result = await uploadPromise;
