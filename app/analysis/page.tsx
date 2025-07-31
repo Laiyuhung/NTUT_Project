@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 
 // 定義照片類型
 type PhotoRecord = {
@@ -80,7 +79,6 @@ export default function AnalysisPage() {
   // 模型相關狀態
   const [modelFile, setModelFile] = useState<File | null>(null);
   const [uploadingModel, setUploadingModel] = useState<boolean>(false);
-  const [activeModel, setActiveModel] = useState<string | null>(null);
   const [availableModels, setAvailableModels] = useState<ModelRecord[]>([]);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
 
@@ -110,10 +108,9 @@ export default function AnalysisPage() {
       const modelsData: ModelRecord[] = await response.json();
       setAvailableModels(modelsData);
       
-      // 如果有活躍模型標記，設置為活躍
+      // 如果有活躍模型標記，設置為預設選擇
       if (modelsData.some((model: ModelRecord) => model.is_active)) {
         const activeModelData = modelsData.find((model: ModelRecord) => model.is_active);
-        setActiveModel(activeModelData?.id || null);
         setSelectedModel(activeModelData?.id || null);
       }
     } catch (err) {
@@ -168,34 +165,7 @@ export default function AnalysisPage() {
     }
   };
   
-  // 設置活躍模型
-  const setModelAsActive = async (modelId: string) => {
-    try {
-      const response = await fetch('/api/set-active-model', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ modelId }),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`設置失敗: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      if (result.success) {
-        setActiveModel(modelId);
-        // 更新可用模型列表
-        fetchAvailableModels();
-      } else {
-        throw new Error(result.message || '設置活躍模型失敗');
-      }
-    } catch (err) {
-      console.error('設置活躍模型失敗:', err);
-      setError(`設置活躍模型失敗: ${err instanceof Error ? err.message : '未知錯誤'}`);
-    }
-  };
+  // 批次分析選擇的照片
 
   // 批次分析選擇的照片
   const analyzeBatchPhotos = async () => {
