@@ -7,7 +7,10 @@ interface PhotoRecord {
   file_url?: string;
   taken_at: string;
   station_id: string;
-  [key: string]: any; // 其他屬性
+  nearest_station?: string;
+  latitude?: string;
+  longitude?: string;
+  [key: string]: string | number | boolean | null | undefined; // 其他屬性
 }
 
 export async function GET() {
@@ -49,8 +52,8 @@ export async function GET() {
         timestamp: photo.taken_at,
         station_id: photo.nearest_station || '未知測站',
         station_name: photo.nearest_station || '未知測站',
-        latitude: parseFloat(photo.latitude) || 0,
-        longitude: parseFloat(photo.longitude) || 0,
+        latitude: photo.latitude ? parseFloat(photo.latitude) : 0,
+        longitude: photo.longitude ? parseFloat(photo.longitude) : 0,
       }
 
       // 確保檔案 URL 是完整路徑
