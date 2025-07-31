@@ -79,6 +79,8 @@ export default function AnalysisPage() {
   // 模型相關狀態
   const [modelFile, setModelFile] = useState<File | null>(null);
   const [uploadingModel, setUploadingModel] = useState<boolean>(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [availableModels, setAvailableModels] = useState<ModelRecord[]>([]);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
 
@@ -136,29 +138,71 @@ export default function AnalysisPage() {
     }
     
     setUploadingModel(true);
+    setUploadProgress(0);
+    setUploadError(null);
+    
     try {
       const formData = new FormData();
       formData.append('model', modelFile);
       
-      const response = await fetch('/api/upload-model', {
-        method: 'POST',
-        body: formData,
+      // 使用 XMLHttpRequest 來跟踪上傳進度
+      const xhr = new XMLHttpRequest();
+      
+      // 設置進度監聽器
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const progress = Math.round((event.loaded / event.total) * 100);
+          setUploadProgress(progress);
+        }
+      };
+      
+      // 創建 Promise 來處理 XMLHttpRequest
+      const uploadPromise = new Promise<any>((resolve, reject) => {
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const response = JSON.parse(xhr.responseText);
+              resolve(response);
+            } catch (error) {
+              reject(new Error('解析回應失敗'));
+            }
+          } else {
+            reject(new Error(`上傳失敗: ${xhr.status} ${xhr.statusText}`));
+          }
+        };
+        
+        xhr.onerror = () => {
+          reject(new Error('網絡錯誤，請檢查連接'));
+        };
+        
+        xhr.onabort = () => {
+          reject(new Error('上傳被中斷'));
+        };
       });
       
-      if (!response.ok) {
-        throw new Error(`上傳失敗: ${response.status}`);
-      }
+      // 開始請求
+      xhr.open('POST', '/api/upload-model', true);
+      xhr.send(formData);
       
-      const result = await response.json();
+      // 等待上傳完成
+      const result = await uploadPromise;
+      
       if (result.success) {
-        // 重新獲取模型列表
+        // 上傳成功，重新獲取模型列表
         fetchAvailableModels();
         setModelFile(null);
+        setUploadProgress(100);
+        
+        // 5秒後重置上傳狀態，清除成功提示
+        setTimeout(() => {
+          setUploadProgress(0);
+        }, 5000);
       } else {
-        throw new Error(result.message || '上傳模型失敗');
+        throw new Error(result.message || result.error || '上傳模型失敗');
       }
     } catch (err) {
       console.error('模型上傳失敗:', err);
+      setUploadError(`模型上傳失敗: ${err instanceof Error ? err.message : '未知錯誤'}`);
       setError(`模型上傳失敗: ${err instanceof Error ? err.message : '未知錯誤'}`);
     } finally {
       setUploadingModel(false);
@@ -211,6 +255,14 @@ export default function AnalysisPage() {
   useEffect(() => {
     fetchPhotos();
     fetchAvailableModels();
+    
+    // 組件卸載時重置上傳狀態
+    return () => {
+      if (uploadingModel) {
+        console.log('組件卸載時取消上傳操作');
+        // 這裡如果有需要，可以添加取消上傳請求的邏輯
+      }
+    };
   }, []);
 
   // 產生雲型分布顯示元件
@@ -311,6 +363,34 @@ export default function AnalysisPage() {
                 )}
               </div>
               
+              {/* 上傳進度顯示 */}
+              {uploadingModel && (
+                <div className="mb-4">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span>上傳進度</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div 
+                      className="h-2.5 rounded-full bg-blue-600 transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+              
+              {/* 上傳錯誤顯示 */}
+              {uploadError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                  <div className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <p className="text-sm text-red-600">{uploadError}</p>
+                  </div>
+                </div>
+              )}
+              
               <div className="flex flex-col space-y-3">
                 <input 
                   type="file" 
@@ -318,6 +398,7 @@ export default function AnalysisPage() {
                   onChange={(e) => {
                     if (e.target.files && e.target.files.length > 0) {
                       setModelFile(e.target.files[0]);
+                      setUploadError(null); // 清除之前的錯誤
                     }
                   }}
                   className="block w-full text-sm text-gray-500
@@ -326,14 +407,43 @@ export default function AnalysisPage() {
                     file:text-sm file:font-semibold
                     file:bg-blue-50 file:text-blue-700
                     hover:file:bg-blue-100"
+                  disabled={uploadingModel}
                 />
-                <button 
-                  onClick={uploadModelFile}
-                  disabled={!modelFile || uploadingModel}
-                  className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400"
-                >
-                  {uploadingModel ? '上傳中...' : '上傳模型'}
-                </button>
+                
+                <div className="flex space-x-2">
+                  <button 
+                    onClick={uploadModelFile}
+                    disabled={!modelFile || uploadingModel}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400"
+                  >
+                    {uploadingModel ? `上傳中 (${uploadProgress}%)...` : '上傳模型'}
+                  </button>
+                  
+                  {uploadError && (
+                    <button
+                      onClick={() => {
+                        setModelFile(null);
+                        setUploadError(null);
+                        setUploadProgress(0);
+                      }}
+                      className="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                    >
+                      重置
+                    </button>
+                  )}
+                </div>
+                
+                {/* 上传成功提示 */}
+                {!uploadingModel && uploadProgress === 100 && !uploadError && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-md mt-2">
+                    <div className="flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <p className="text-sm text-green-600">模型上傳成功！</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
