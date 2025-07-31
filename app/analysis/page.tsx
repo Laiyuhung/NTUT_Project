@@ -156,14 +156,22 @@ export default function AnalysisPage() {
         }
       };
       
+      // 定義上傳響應類型
+      interface UploadResponse {
+        success: boolean;
+        model?: ModelRecord;
+        message?: string;
+        error?: string;
+      }
+      
       // 創建 Promise 來處理 XMLHttpRequest
-      const uploadPromise = new Promise<any>((resolve, reject) => {
+      const uploadPromise = new Promise<UploadResponse>((resolve, reject) => {
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
-              const response = JSON.parse(xhr.responseText);
+              const response = JSON.parse(xhr.responseText) as UploadResponse;
               resolve(response);
-            } catch (error) {
+            } catch (parseError) {
               reject(new Error('解析回應失敗'));
             }
           } else {
