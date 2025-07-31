@@ -255,6 +255,11 @@ export async function POST(request: Request) {
     const arrayBuffer = await photoFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     
+    // 在實際應用中，我們會使用 buffer 來計算亮度和進行雲型識別
+    // const imageProcessor = new ImageProcessor(buffer); // 實際使用時取消註釋
+    // const meanBrightness = imageProcessor.calculateBrightness();
+    // const predictions = await modelService.predict(buffer);
+    
     // 這裡會使用外部服務來處理圖像和進行雲型預測
     // 實際項目中應該調用您的 YOLO 模型 API
     

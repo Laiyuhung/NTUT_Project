@@ -21,6 +21,25 @@ type WeatherPhotoData = {
   cloud_type_distribution?: Record<string, number>;
 };
 
+// 定義雲型分析結果的類型
+type CloudAnalysisResult = {
+  success: boolean;
+  primaryCloudType: {
+    id: string;
+    name: string;
+    description: string;
+    confidence: number;
+  };
+  results: Array<{
+    id: string;
+    name: string;
+    description: string;
+    confidence: number;
+  }>;
+  distribution: Record<string, number>;
+  meanBrightness: number;
+};
+
 // 定義雲型
 const cloudTypes = [
   { id: 'Cu', name: '積雲', description: '低空雲，像棉花糖一樣蓬鬆' },
@@ -50,7 +69,7 @@ export default function AnalysisPage() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState<boolean>(false);
-  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [analysisResult, setAnalysisResult] = useState<CloudAnalysisResult | null>(null);
 
   // 獲取照片與氣象數據
   const fetchPhotoData = async () => {
