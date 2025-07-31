@@ -58,7 +58,7 @@ export default function AnalysisPage() {
       const photoData = await photoResponse.json();
       
       // 模擬雲型識別結果 (實際情況下應該從另一個 API 獲取)
-      const enhancedData: WeatherPhotoData[] = photoData.map((photo: any) => {
+      const enhancedData: WeatherPhotoData[] = photoData.map((photo: Partial<WeatherPhotoData>) => {
         // 隨機產生一個雲型和信心分數
         const cloudTypeIndex = Math.floor(Math.random() * cloudTypes.length);
         const cloudType = cloudTypes[cloudTypeIndex].id;

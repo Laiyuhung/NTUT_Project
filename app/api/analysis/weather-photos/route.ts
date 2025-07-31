@@ -1,7 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { supabase } from '../../../../lib/supabaseClient'
 
-export async function GET(request: NextRequest) {
+// 定義 Supabase 照片資料結構
+interface PhotoRecord {
+  id: number;
+  file_url?: string;
+  taken_at: string;
+  station_id: string;
+  [key: string]: any; // 其他屬性
+}
+
+export async function GET() {
   try {
     const { data: photos, error: photosError } = await supabase
       .from('photos')
@@ -32,7 +41,7 @@ export async function GET(request: NextRequest) {
     };
     
     // 增強照片數據，加入氣象資料和雲型辨識結果
-    const enhancedData = await Promise.all(photos.map(async (photo: any) => {
+    const enhancedData = await Promise.all(photos.map(async (photo: PhotoRecord) => {
       // 基本照片資料
       const photoData: PhotoData = {
         photo_id: photo.id.toString(),
