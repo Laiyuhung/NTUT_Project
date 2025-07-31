@@ -171,7 +171,8 @@ export default function AnalysisPage() {
             try {
               const response = JSON.parse(xhr.responseText) as UploadResponse;
               resolve(response);
-            } catch (parseError) {
+            } catch (_) {
+              // 使用下划线作为未使用变量的占位符
               reject(new Error('解析回應失敗'));
             }
           } else {
