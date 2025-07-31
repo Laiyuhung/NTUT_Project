@@ -71,11 +71,33 @@ export default function AnalysisPage() {
   const [analysisLoading, setAnalysisLoading] = useState<boolean>(false);
   const [analysisResult, setAnalysisResult] = useState<CloudAnalysisResult | null>(null);
   
+  // 定義照片類型
+  type PhotoRecord = {
+    id: string;
+    filename?: string;
+    taken_at?: string;
+    latitude?: number;
+    longitude?: number;
+    nearest_station?: string;
+    uploaded_at?: string;
+    file_size?: number;
+    file_url: string;
+    preview_url?: string;
+    file_type?: string;
+  };
+  
+  // 定義批次分析結果類型
+  type BatchAnalysisResult = CloudAnalysisResult & {
+    photo_id: string;
+    file_url: string;
+    filename?: string;
+  };
+  
   // 批次分析相關狀態
-  const [photos, setPhotos] = useState<any[]>([]);
+  const [photos, setPhotos] = useState<PhotoRecord[]>([]);
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
   const [batchAnalysisLoading, setBatchAnalysisLoading] = useState<boolean>(false);
-  const [batchAnalysisResults, setBatchAnalysisResults] = useState<any[]>([]);
+  const [batchAnalysisResults, setBatchAnalysisResults] = useState<BatchAnalysisResult[]>([]);
   const [showBatchResults, setShowBatchResults] = useState<boolean>(false);
 
   // 獲取照片與氣象數據
@@ -625,12 +647,12 @@ export default function AnalysisPage() {
                       <p className="mb-1 font-medium">雲型分布:</p>
                       <div className="space-y-1">
                         {Object.entries(result.distribution)
-                          .sort(([, a], [, b]) => (b as number) - (a as number))
+                          .sort(([, a], [, b]) => b - a)
                           .slice(0, 3)
                           .map(([type, probability]) => (
                             <div key={type} className="flex justify-between">
                               <span>{cloudTypes.find(t => t.id === type)?.name || type}</span>
-                              <span>{((probability as number) * 100).toFixed(0)}%</span>
+                              <span>{(probability * 100).toFixed(0)}%</span>
                             </div>
                           ))
                         }

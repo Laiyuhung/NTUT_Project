@@ -360,8 +360,9 @@ export async function POST(request: Request) {
     }
 
     // 將照片轉為 ArrayBuffer 以便處理亮度
-    const arrayBuffer = await photoFile.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    await photoFile.arrayBuffer();
+    // 在實際應用中，我們會使用 buffer 來計算亮度和進行雲型識別
+    // const buffer = Buffer.from(arrayBuffer);
     
     // 實際應用中，這裡應該調用 Python 的 YOLO 模型 API
     // 模擬雲型識別結果 (實際環境中這應該是由您的 YOLO 模型提供)
