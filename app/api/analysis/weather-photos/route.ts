@@ -1,6 +1,20 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '../../../../lib/supabaseClient'
 
+// 定義雲型
+const cloudTypes = [
+  { id: 'Cu', name: '積雲', description: '低空雲，像棉花糖一樣蓬鬆' },
+  { id: 'Ci', name: '卷雲', description: '高空雲，像羽毛一樣輕薄' },
+  { id: 'St', name: '層雲', description: '低空雲，灰色均勻的雲層' },
+  { id: 'As', name: '高層雲', description: '中高空雲，灰白色雲蓋' },
+  { id: 'Ns', name: '雨層雲', description: '低空雲，灰色雲層伴隨持續降雨' },
+  { id: 'Sc', name: '層積雲', description: '低空雲，灰白色或灰色的雲塊' },
+  { id: 'Cb', name: '積雨雲', description: '垂直發展雲，常伴隨雷暴' },
+  { id: 'Ac', name: '高積雲', description: '中空雲，白色或灰色雲團' },
+  { id: 'Cc', name: '卷積雲', description: '高空雲，小而圓的白色雲團' },
+  { id: 'Cs', name: '卷層雲', description: '高空雲，薄而透明的白色雲層' },
+];
+
 // 定義 Supabase 照片資料結構
 interface PhotoRecord {
   id: number;
@@ -130,5 +144,197 @@ export async function GET() {
   } catch (error) {
     console.error('獲取照片與氣象資料失敗:', error)
     return NextResponse.json({ error: '獲取照片與氣象資料失敗' }, { status: 500 })
+  }
+}
+
+// 雲型分類 ID 映射
+const classIdMap: Record<string, number> = {};
+cloudTypes.forEach((type, index) => {
+  classIdMap[type.id] = index;
+});
+
+// 高層雲分類規則
+function applyHighLevelCloudRules(topPreds: number[]): number[] {
+  const Cc = classIdMap['Cc'] || 8;
+  const Ci = classIdMap['Ci'] || 1;
+  const Cs = classIdMap['Cs'] || 9;
+  
+  if (!topPreds.some(cid => [Cc, Ci, Cs].includes(cid))) {
+    return topPreds;
+  }
+  
+  if (topPreds.includes(Cs) && topPreds.includes(Ci)) {
+    topPreds = [Cs, ...topPreds.filter(cid => cid !== Cs)];
+  }
+  
+  if (topPreds.includes(Cc) && topPreds.includes(Ci) && !topPreds.includes(Cs)) {
+    topPreds = [Cc, ...topPreds.filter(cid => cid !== Cc)];
+  }
+  
+  return topPreds.slice(0, 3);
+}
+
+// 中層雲分類規則
+function applyMiddleLevelCloudRules(topPreds: number[]): number[] {
+  const Ac = classIdMap['Ac'] || 7;
+  const As = classIdMap['As'] || 3;
+  const Ns = classIdMap['Ns'] || 4;
+  
+  if (!topPreds.some(cid => [Ac, As, Ns].includes(cid))) {
+    return topPreds;
+  }
+  
+  if (topPreds.includes(Ns) && topPreds.includes(As)) {
+    topPreds = [Ns, ...topPreds.filter(cid => cid !== Ns)];
+  }
+  
+  if (topPreds.includes(Ac) && topPreds.includes(As)) {
+    topPreds = [As, ...topPreds.filter(cid => cid !== As)];
+  }
+  
+  return topPreds.slice(0, 3);
+}
+
+// 低層雲分類規則
+function applyLowLevelCloudRules(topPreds: number[]): number[] {
+  const Sc = classIdMap['Sc'] || 5;
+  const St = classIdMap['St'] || 2;
+  const Cu = classIdMap['Cu'] || 0;
+  
+  if (!topPreds.some(cid => [Sc, St, Cu].includes(cid))) {
+    return topPreds;
+  }
+  
+  if (topPreds.includes(Sc) && topPreds.includes(Cu)) {
+    topPreds = [Sc, ...topPreds.filter(cid => cid !== Sc)];
+  }
+  
+  if (topPreds.includes(St) && topPreds.includes(Sc)) {
+    topPreds = [St, ...topPreds.filter(cid => cid !== St)];
+  }
+  
+  return topPreds.slice(0, 3);
+}
+
+// 根據亮度調整預測
+function adjustByBrightness(topPreds: number[], meanBrightness: number): number[] {
+  const Ci = classIdMap['Ci'] || 1;
+  const Cs = classIdMap['Cs'] || 9;
+  const Ns = classIdMap['Ns'] || 4;
+  const St = classIdMap['St'] || 2;
+
+  if (meanBrightness > 200) {
+    for (const pri of [Ci, Cs]) {
+      if (topPreds.includes(pri)) {
+        topPreds = [pri, ...topPreds.filter(cid => cid !== pri)];
+        break;
+      }
+    }
+  } else if (meanBrightness < 100) {
+    for (const pri of [Ns, St]) {
+      if (topPreds.includes(pri)) {
+        topPreds = [pri, ...topPreds.filter(cid => cid !== pri)];
+        break;
+      }
+    }
+  }
+  return topPreds.slice(0, 3);
+}
+
+// 處理照片上傳和雲型辨識
+export async function POST(request: Request) {
+  try {
+    const formData = await request.formData();
+    const photoFile = formData.get('photo') as File;
+
+    if (!photoFile) {
+      return NextResponse.json({ error: '未上傳照片' }, { status: 400 });
+    }
+
+    // 將照片轉為 ArrayBuffer 以便處理亮度
+    const arrayBuffer = await photoFile.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    
+    // 這裡會使用外部服務來處理圖像和進行雲型預測
+    // 實際項目中應該調用您的 YOLO 模型 API
+    
+    // 模擬雲型識別結果 (實際環境中這應該是由您的 YOLO 模型提供)
+    const mockPredictions = [
+      { class_id: Math.floor(Math.random() * cloudTypes.length), confidence: 0.85 },
+      { class_id: Math.floor(Math.random() * cloudTypes.length), confidence: 0.65 },
+      { class_id: Math.floor(Math.random() * cloudTypes.length), confidence: 0.45 },
+      { class_id: Math.floor(Math.random() * cloudTypes.length), confidence: 0.25 },
+    ];
+    
+    // 模擬計算平均亮度 (在實際環境中應該使用適當的圖像處理庫)
+    // 實際環境中可以考慮使用 npm 套件如 sharp 或 jimp
+    const meanBrightness = Math.random() * 255; // 模擬亮度值 (0-255)
+    
+    // 應用各層雲規則和亮度調整
+    let topPreds = mockPredictions
+      .sort((a, b) => b.confidence - a.confidence)
+      .map(p => p.class_id)
+      .slice(0, 3);
+    
+    topPreds = adjustByBrightness(topPreds, meanBrightness);
+    topPreds = applyHighLevelCloudRules(topPreds);
+    topPreds = applyMiddleLevelCloudRules(topPreds);
+    topPreds = applyLowLevelCloudRules(topPreds);
+    
+    // 將識別結果轉換為帶有詳細資訊的雲型物件
+    const results = topPreds.map((classId, index) => {
+      const cloudType = cloudTypes[classId] || cloudTypes[0];
+      return {
+        id: cloudType.id,
+        name: cloudType.name,
+        description: cloudType.description,
+        confidence: mockPredictions[index]?.confidence || 0.5,
+      };
+    });
+    
+    // 生成雲型分佈
+    const distribution: Record<string, number> = {};
+    cloudTypes.forEach((cloudType) => {
+      distribution[cloudType.id] = 0.01; // 基礎概率
+    });
+    
+    // 根據預測結果增加主要雲型的概率值
+    results.forEach((result, index) => {
+      const factor = index === 0 ? 0.7 : index === 1 ? 0.2 : 0.05;
+      distribution[result.id] = result.confidence * factor;
+    });
+    
+    // 將照片保存到 Supabase Storage (實際使用時可取消註解)
+    /*
+    const filePath = `photos/uploaded/${Date.now()}_${photoFile.name}`;
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('uploads')
+      .upload(filePath, buffer);
+      
+    if (uploadError) {
+      console.error('照片上傳失敗:', uploadError);
+      return NextResponse.json({ error: '照片上傳失敗' }, { status: 500 });
+    }
+    
+    const { data: urlData } = supabase.storage
+      .from('uploads')
+      .getPublicUrl(filePath);
+    
+    const photoUrl = urlData.publicUrl;
+    */
+    
+    return NextResponse.json({
+      success: true,
+      primaryCloudType: results[0],
+      results,
+      distribution,
+      meanBrightness,
+    });
+  } catch (error) {
+    console.error('處理照片時發生錯誤:', error);
+    return NextResponse.json(
+      { error: '處理照片時發生錯誤' },
+      { status: 500 }
+    );
   }
 }

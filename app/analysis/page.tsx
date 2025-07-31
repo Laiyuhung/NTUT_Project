@@ -45,6 +45,12 @@ export default function AnalysisPage() {
     dateRange: { start: '', end: '' }
   });
   const [stations, setStations] = useState<{id: string, name: string}[]>([]);
+  
+  // 上傳和分析相關狀態
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState<boolean>(false);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
 
   // 獲取照片與氣象數據
   const fetchPhotoData = async () => {
@@ -226,9 +232,190 @@ export default function AnalysisPage() {
     applyFilters();
   }, [filters]);
 
+  // 處理照片上傳
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      setUploadedFile(file);
+      setUploadedImageUrl(URL.createObjectURL(file));
+      setAnalysisResult(null); // 清除先前的分析結果
+    }
+  };
+
+  // 上傳照片並分析
+  const analyzePhoto = async () => {
+    if (!uploadedFile) {
+      setError('請先選擇照片');
+      return;
+    }
+
+    setAnalysisLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('photo', uploadedFile);
+
+      const response = await fetch('/api/analysis/weather-photos', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`分析失敗: ${response.status}`);
+      }
+
+      const result = await response.json();
+      setAnalysisResult(result);
+    } catch (err) {
+      console.error('照片分析失敗:', err);
+      setError(`照片分析失敗: ${err instanceof Error ? err.message : '未知錯誤'}`);
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
+
+  // 產生雲型分布顯示元件
+  const renderCloudDistribution = (distribution: Record<string, number>) => {
+    return (
+      <div className="space-y-2">
+        {Object.entries(distribution)
+          .sort(([, a], [, b]) => b - a)
+          .map(([type, probability]) => (
+            <div key={type}>
+              <div className="flex justify-between mb-1 text-sm">
+                <span>
+                  {cloudTypes.find(t => t.id === type)?.name || type}
+                </span>
+                <span>{(probability * 100).toFixed(0)}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div 
+                  className={`h-2.5 rounded-full ${type === analysisResult?.primaryCloudType?.id ? 'bg-blue-600' : 'bg-blue-300'}`}
+                  style={{ width: `${probability * 100}%` }}
+                ></div>
+              </div>
+            </div>
+          ))
+        }
+      </div>
+    );
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-6">雲型辨識與氣象數據分析</h1>
+      
+      {/* 雲型分析上傳區 */}
+      <div className="bg-white shadow-lg rounded-lg p-6 mb-6">
+        <h2 className="text-xl font-semibold mb-4">雲型辨識分析</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 mb-4 flex flex-col items-center justify-center">
+              {uploadedImageUrl ? (
+                <div className="relative w-full pb-[75%]">
+                  <img 
+                    src={uploadedImageUrl} 
+                    alt="Uploaded cloud photo" 
+                    className="absolute inset-0 w-full h-full object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <p className="text-gray-500">選擇或拖曳雲照片進行分析</p>
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col space-y-3">
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={handleFileChange}
+                className="block w-full text-sm text-gray-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-md file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-blue-50 file:text-blue-700
+                  hover:file:bg-blue-100"
+              />
+              <button 
+                onClick={analyzePhoto}
+                disabled={!uploadedFile || analysisLoading}
+                className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400"
+              >
+                {analysisLoading ? '分析中...' : '分析雲型'}
+              </button>
+              <p className="text-xs text-gray-500 text-center">
+                本功能使用基於 YOLO 的雲型辨識模型，依照亮度特性進行優化
+              </p>
+            </div>
+          </div>
+          
+          <div>
+            {analysisLoading ? (
+              <div className="flex justify-center items-center h-full">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                  <p>分析雲型中...</p>
+                </div>
+              </div>
+            ) : analysisResult ? (
+              <div>
+                <div className="mb-4">
+                  <h3 className="font-semibold mb-2">辨識結果</h3>
+                  <div className="bg-blue-50 rounded-lg p-4">
+                    <p className="text-lg font-bold text-blue-800">
+                      {analysisResult.primaryCloudType.name} ({analysisResult.primaryCloudType.id})
+                    </p>
+                    <p className="text-sm text-blue-600">
+                      {analysisResult.primaryCloudType.description}
+                    </p>
+                    <div className="mt-2 text-sm">
+                      <span className="font-medium">信心指數:</span> {(analysisResult.primaryCloudType.confidence * 100).toFixed(0)}%
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mb-4">
+                  <h3 className="font-semibold mb-2">亮度分析</h3>
+                  <div className="bg-gray-100 rounded-lg p-3">
+                    <div className="flex justify-between mb-1 text-sm">
+                      <span>平均亮度</span>
+                      <span>{analysisResult.meanBrightness.toFixed(1)}/255</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div 
+                        className={`h-2.5 rounded-full ${
+                          analysisResult.meanBrightness > 200 ? 'bg-yellow-400' : 
+                          analysisResult.meanBrightness > 100 ? 'bg-blue-400' : 'bg-gray-600'
+                        }`}
+                        style={{ width: `${(analysisResult.meanBrightness / 255 * 100).toFixed(0)}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {analysisResult.meanBrightness > 200 ? '高亮度 - 適合識別高層雲' : 
+                       analysisResult.meanBrightness > 100 ? '中等亮度' : '低亮度 - 適合識別低層雲'}
+                    </p>
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-2">雲型分布</h3>
+                  {renderCloudDistribution(analysisResult.distribution)}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p>上傳雲照片進行分析</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
       
       {/* 錯誤提示 */}
       {error && (
