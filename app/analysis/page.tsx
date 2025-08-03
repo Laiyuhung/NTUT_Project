@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import JSZip from 'jszip';
 
 // 定義照片類型
 type PhotoRecord = {
@@ -143,36 +142,11 @@ export default function AnalysisPage() {
     setUploadError(null);
     
     try {
-      // 壓縮文件
-      setUploadProgress(5); // 開始壓縮的進度指示
-      const zip = new JSZip();
+      setUploadProgress(10); // 準備上傳
       
-      // 讀取模型文件
-      const modelBuffer = await modelFile.arrayBuffer();
-      
-      // 將模型添加到ZIP
-      zip.file(modelFile.name, modelBuffer);
-      
-      // 生成ZIP文件
-      setUploadProgress(20); // 壓縮中的進度指示
-      const zipBlob = await zip.generateAsync({
-        type: 'blob',
-        compression: 'DEFLATE',
-        compressionOptions: { level: 6 } // 設置壓縮等級 (0-9)
-      }, (metadata) => {
-        // 壓縮進度更新
-        const compressProgress = Math.floor(20 + (metadata.percent * 0.3)); // 20-50% 範圍用於壓縮進度
-        setUploadProgress(compressProgress);
-      });
-      
-      setUploadProgress(50); // 壓縮完成，準備上傳
-      
-      // 創建包含壓縮文件的表單
+      // 創建表單數據，直接上傳用戶選擇的 .zip 檔案
       const formData = new FormData();
-      // 使用原始文件名但添加.zip擴展名
-      const zipFileName = modelFile.name.endsWith('.zip') ? modelFile.name : `${modelFile.name}.zip`;
-      formData.append('model', new File([zipBlob], zipFileName, { type: 'application/zip' }));
-      formData.append('originalFileName', modelFile.name); // 添加原始文件名
+      formData.append('model', modelFile);
       
       // 使用 XMLHttpRequest 來跟踪上傳進度
       const xhr = new XMLHttpRequest();
@@ -180,11 +154,11 @@ export default function AnalysisPage() {
       // 設置更長的超時時間
       xhr.timeout = 300000; // 5分鐘
       
-      // 設置進度監聽器 - 上傳進度從50%到95%
+      // 設置進度監聽器
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
-          // 上傳進度從50%開始，最高到95%（保留5%給服務器處理）
-          const uploadProgress = Math.round(50 + ((event.loaded / event.total) * 45));
+          // 上傳進度從10%開始，最高到95%（保留5%給服務器處理）
+          const uploadProgress = Math.round(10 + ((event.loaded / event.total) * 85));
           setUploadProgress(uploadProgress);
         }
       };
@@ -403,7 +377,7 @@ export default function AnalysisPage() {
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
-                    <p className="text-gray-500">選擇或拖曳 .pt YOLO 模型檔案</p>
+                    <p className="text-gray-500">選擇或拖曳 .zip 模型檔案</p>
                   </div>
                 )}
               </div>
@@ -439,7 +413,7 @@ export default function AnalysisPage() {
               <div className="flex flex-col space-y-3">
                 <input 
                   type="file" 
-                  accept=".pt"
+                  accept=".zip"
                   onChange={(e) => {
                     if (e.target.files && e.target.files.length > 0) {
                       setModelFile(e.target.files[0]);
@@ -462,11 +436,7 @@ export default function AnalysisPage() {
                     className="flex-1 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400"
                   >
                     {uploadingModel 
-                      ? uploadProgress < 20 
-                        ? '準備壓縮...' 
-                        : uploadProgress < 50 
-                          ? `壓縮中 (${uploadProgress}%)...` 
-                          : `上傳中 (${uploadProgress}%)...`
+                      ? `上傳中 (${uploadProgress}%)...`
                       : '上傳模型'}
                   </button>
                   
