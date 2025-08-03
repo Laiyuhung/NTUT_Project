@@ -151,8 +151,8 @@ export default function AnalysisPage() {
       // 使用 XMLHttpRequest 來跟踪上傳進度
       const xhr = new XMLHttpRequest();
       
-      // 設置更長的超時時間
-      xhr.timeout = 300000; // 5分鐘
+      // 設置更長的超時時間以支持大文件上傳
+      xhr.timeout = 600000; // 10分鐘
       
       // 設置進度監聽器
       xhr.upload.onprogress = (event) => {

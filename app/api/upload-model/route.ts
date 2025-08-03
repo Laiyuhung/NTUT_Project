@@ -2,17 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
 
-// 配置路由處理大檔案上傳
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-  maxDuration: 60, // 增加超時時間到60秒
-};
+// 設定最大文件大小 (200MB)
+export const maxDuration = 300; // 5分鐘超時
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    // 增加請求體大小限制
+    // 增加請求體大小限制檢查
     const contentLength = request.headers.get('content-length');
     if (contentLength && parseInt(contentLength) > 200 * 1024 * 1024) { // 200MB 限制
       return NextResponse.json(

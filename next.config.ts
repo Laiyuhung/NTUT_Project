@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['sharp', 'canvas', 'unzipper', 'fs', 'path', 'os'],
     serverActions: {
-      bodySizeLimit: '10mb',
+      bodySizeLimit: '200mb', // 增加到 200MB 以支持大模型文件
     },
   },
   webpack(config) {
