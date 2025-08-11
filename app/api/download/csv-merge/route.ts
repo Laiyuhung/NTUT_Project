@@ -39,9 +39,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '沒有符合條件的資料' }, { status: 400 })
     }
 
-    // 合併CSV資料
-    const mergedData: string[] = []
-    let headerAdded = false
+    // 第一步：收集所有CSV檔案的內容和標頭
+    const allCsvData: Array<{
+      headers: string[],
+      rows: string[][],
+      uploadDate: string,
+      stationName: string
+    }> = []
 
     for (const csvFile of csvFiles) {
       try {
@@ -53,28 +57,74 @@ export async function POST(request: NextRequest) {
         if (downloadError) {
           console.error(`下載檔案 ${csvFile.file_url} 失敗：`, downloadError)
           continue
-        }        // 將 Blob 轉換為文字
+        }
+
+        // 將 Blob 轉換為文字
         const csvContent = await fileData.text()
         const lines = csvContent.split('\n').filter(line => line.trim() !== '')
 
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i]
-          
-          // 只加入一次標頭，並在標頭後面加上日期和測站欄位
-          if (i === 0) {
-            if (!headerAdded) {
-              mergedData.push(line + ',上傳日期,測站名稱')
-              headerAdded = true
-            }
-            continue
-          }
-          
-          // 加入資料行，並在每行後面加上日期和測站名稱
-          mergedData.push(line + `,${csvFile.upload_date},${csvFile.station_name}`)
-        }
+        if (lines.length === 0) continue
+
+        // 解析標頭和資料行
+        const headers = lines[0].split(',').map(h => h.trim())
+        const rows = lines.slice(1).map(line => line.split(',').map(cell => cell.trim()))
+
+        allCsvData.push({
+          headers,
+          rows,
+          uploadDate: csvFile.upload_date,
+          stationName: csvFile.station_name
+        })
       } catch (fileError) {
         console.error(`處理檔案 ${csvFile.file_url} 時發生錯誤：`, fileError)
         continue
+      }
+    }
+
+    if (allCsvData.length === 0) {
+      return NextResponse.json({ error: '無法讀取任何CSV資料' }, { status: 500 })
+    }
+
+    // 第二步：找出最完整的標頭（欄位數量最多的）
+    let masterHeaders: string[] = []
+    let maxColumnCount = 0
+
+    for (const csvData of allCsvData) {
+      if (csvData.headers.length > maxColumnCount) {
+        maxColumnCount = csvData.headers.length
+        masterHeaders = csvData.headers
+      }
+    }
+
+    // 加上固定的欄位
+    const finalHeaders = [...masterHeaders, '上傳日期', '測站名稱']
+
+    // 第三步：對齊所有資料到統一格式
+    const mergedData: string[] = []
+    
+    // 加入標頭
+    mergedData.push(finalHeaders.join(','))
+
+    // 處理每個CSV的資料
+    for (const csvData of allCsvData) {
+      for (const row of csvData.rows) {
+        const alignedRow: string[] = []
+        
+        // 對照主標頭，填入對應資料或NA
+        for (const masterHeader of masterHeaders) {
+          const headerIndex = csvData.headers.indexOf(masterHeader)
+          if (headerIndex !== -1 && headerIndex < row.length) {
+            alignedRow.push(row[headerIndex] || 'NA')
+          } else {
+            alignedRow.push('NA')
+          }
+        }
+        
+        // 加上上傳日期和測站名稱
+        alignedRow.push(csvData.uploadDate)
+        alignedRow.push(csvData.stationName)
+        
+        mergedData.push(alignedRow.join(','))
       }
     }
 
