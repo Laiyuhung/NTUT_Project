@@ -63,11 +63,11 @@ export async function POST(request: NextRequest) {
         const csvContent = await fileData.text()
         const lines = csvContent.split('\n').filter(line => line.trim() !== '')
 
-        if (lines.length === 0) continue
+        if (lines.length < 2) continue // 至少需要兩列（忽略第一列，第二列是標頭）
 
-        // 解析標頭和資料行
-        const headers = lines[0].split(',').map(h => h.trim())
-        const rows = lines.slice(1).map(line => line.split(',').map(cell => cell.trim()))
+        // 解析標頭和資料行（忽略第一列，使用第二列作為標頭）
+        const headers = lines[1].split(',').map(h => h.trim())
+        const rows = lines.slice(2).map(line => line.split(',').map(cell => cell.trim()))
 
         allCsvData.push({
           headers,
