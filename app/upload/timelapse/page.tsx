@@ -428,6 +428,13 @@ export default function TimelapsePage() {
       if (!locationData) {
         setSelectionMode('manual')
       }
+
+        // 預設選擇最近五個測站的第一個（如果有）
+        if (nearestFiveStations.length > 0) {
+          setSelectedStation(nearestFiveStations[0].id || nearestFiveStations[0].name)
+        } else if (stations.length > 0) {
+          setSelectedStation(stations[0].id || stations[0].name)
+        }
     }
     
     // 執行初始化
@@ -738,9 +745,9 @@ export default function TimelapsePage() {
                           </div>
                         </div>
                         <div className="flex items-center">
-                          {selectedStation === station.id && (
-                            <span className="text-green-600 text-xs font-medium mr-2">✓ 已選擇</span>
-                          )}
+                            {(selectedStation === station.id || index === 0) && (
+                              <span className="text-green-600 text-xs font-medium mr-2">✓ 已選擇</span>
+                            )}
                           <div className={`text-sm font-bold ${
                             index === 0 ? 'text-blue-600' : 'text-gray-400'
                           }`}>
