@@ -381,6 +381,10 @@ export default function TimelapsePage() {
       setCurrentStep(2)
     } else if (currentStep === 2) {
       // 從步驟2（選擇測站）到步驟3（確認預覽）
+
+      if (nearestFiveStations.length > 0) {
+        setSelectedStation(nearestFiveStations[0].id || nearestFiveStations[0].name);
+      }
       
       // 如果是自動模式且有測站，確保選擇了最近的測站
       if (selectionMode === 'auto' && location && stations.length > 0) {
