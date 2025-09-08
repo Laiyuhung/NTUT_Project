@@ -40,7 +40,7 @@ export default function CsvUploadPage() {
         } else {
           tempResults.push({ file: files[i].name, success: false, error: result.error })
         }
-      } catch (error) {
+      } catch {
         tempResults.push({ file: files[i].name, success: false, error: '上傳失敗' })
       }
       setUploadedCount(i + 1)
