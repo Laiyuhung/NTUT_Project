@@ -66,6 +66,16 @@ export async function POST(req: NextRequest) {
       results.push({ file: file.name, error: uploadError.message })
       continue
     }
+    // 刪除舊資料（同 station_name 與 upload_date）
+    const { error: deleteError } = await supabase
+      .from('station_csv_uploads')
+      .delete()
+      .eq('station_name', station_name)
+      .eq('upload_date', upload_date)
+    if (deleteError) {
+      results.push({ file: file.name, error: '刪除舊資料失敗: ' + deleteError.message })
+      continue
+    }
     // 寫入 DB
     const { error: insertError } = await supabase.from('station_csv_uploads').insert({
       station_name,
