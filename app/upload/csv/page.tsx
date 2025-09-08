@@ -5,6 +5,8 @@ import { useState } from 'react'
 export default function CsvUploadPage() {
   const [files, setFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
+  const [uploadedCount, setUploadedCount] = useState(0)
+  const [progress, setProgress] = useState(0) // 百分比
   type UploadResult = { file: string; success?: boolean; error?: string; filePath?: string }
   const [results, setResults] = useState<UploadResult[]>([])
 
@@ -20,27 +22,34 @@ export default function CsvUploadPage() {
     if (uploading) return
     setUploading(true)
     setResults([])
-    try {
+    setUploadedCount(0)
+    setProgress(0)
+    const total = files.length
+    const tempResults: UploadResult[] = []
+    for (let i = 0; i < files.length; i++) {
       const formData = new FormData()
-      files.forEach(f => formData.append('file', f))
-      const res = await fetch('/api/upload-csv', {
-        method: 'POST',
-        body: formData,
-      })
-      const result = await res.json()
-      if (res.ok) {
-        setResults(result.results)
-        alert('✅ 上傳完成！')
-        setFiles([])
-      } else {
-        alert(`❌ 錯誤：${result.error}`)
+      formData.append('file', files[i])
+      try {
+        const res = await fetch('/api/upload-csv', {
+          method: 'POST',
+          body: formData,
+        })
+        const result = await res.json()
+        if (res.ok) {
+          tempResults.push(...(result.results || [{ file: files[i].name, success: true }]))
+        } else {
+          tempResults.push({ file: files[i].name, success: false, error: result.error })
+        }
+      } catch (error) {
+        tempResults.push({ file: files[i].name, success: false, error: '上傳失敗' })
       }
-    } catch (error) {
-      alert('❌ 上傳失敗，請稍後再試')
-      console.error('Upload error:', error)
-    } finally {
-      setUploading(false)
+      setUploadedCount(i + 1)
+      setProgress(Math.round(((i + 1) / total) * 100))
+      setResults([...tempResults])
     }
+    setUploading(false)
+    alert('✅ 上傳完成！')
+    setFiles([])
   }
 
   return (
@@ -79,6 +88,18 @@ export default function CsvUploadPage() {
         >
           {uploading ? '上傳中...' : '上傳'}
         </button>
+        {uploading && files.length > 0 && (
+          <div className="w-full text-center mt-2">
+            <span className="font-medium">{uploadedCount}/{files.length} 已上傳</span>
+            <div className="w-full bg-gray-200 rounded-full h-3 mt-1">
+              <div
+                className="bg-blue-500 h-3 rounded-full transition-all duration-200"
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+            <span className="text-sm text-gray-600">{progress}%</span>
+          </div>
+        )}
         {results.length > 0 && (
           <div className="mt-4">
             <div className="font-semibold mb-1">上傳結果：</div>
