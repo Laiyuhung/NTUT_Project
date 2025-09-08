@@ -13,19 +13,17 @@ export const config = {
 
 
 // 取得所有 station_code_map
+type StationCodeMapRow = { station_code: string; station_name: string }
 async function getStationCodeMap() {
   const { data, error } = await supabase
     .from('station_code_map')
     .select('station_code, station_name')
   if (error) throw new Error('查詢 station_code_map 失敗')
-  // 建立 code->name 與 name->code map
-  const codeToName = new Map<string, string>()
-  const nameToCode = new Map<string, string>()
-  data?.forEach((row: any) => {
+  const codeToName = new Map<string, string>();
+  (data as StationCodeMapRow[] | null)?.forEach((row: StationCodeMapRow) => {
     codeToName.set(row.station_code, row.station_name)
-    nameToCode.set(row.station_name, row.station_code)
   })
-  return { codeToName, nameToCode }
+  return { codeToName }
 }
 
 export async function POST(req: NextRequest) {
@@ -40,8 +38,9 @@ export async function POST(req: NextRequest) {
   let codeToName: Map<string, string>
   try {
     ({ codeToName } = await getStationCodeMap())
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+  } catch (e) {
+    const errMsg = e instanceof Error ? e.message : '未知錯誤'
+    return NextResponse.json({ error: errMsg }, { status: 500 })
   }
 
   const results = []
@@ -52,7 +51,7 @@ export async function POST(req: NextRequest) {
       results.push({ file: file.name, error: '檔名格式錯誤' })
       continue
     }
-    const [_, station_code, upload_date] = match
+  const [, station_code, upload_date] = match
     const station_name = codeToName.get(station_code)
     if (!station_name) {
       results.push({ file: file.name, error: `查無測站碼: ${station_code}` })
