@@ -45,8 +45,8 @@ export async function POST(req: NextRequest) {
 
   const results = []
   for (const file of files) {
-    // 解析檔名: 466920-2025-09-05.csv 或 466920-2025-09-05 (1).csv
-    const match = file.name.match(/^(\d+)-(\d{4}-\d{2}-\d{2})(?: \(\d+\))?\.csv$/)
+    // 解析檔名: C0AC80-2025-07-02.csv、466920-2025-09-05.csv 或 466920-2025-09-05 (1).csv
+    const match = file.name.match(/^([A-Za-z0-9]+)-(\d{4}-\d{2}-\d{2})(?: \(\d+\))?\.csv$/)
     // const match = file.name.match(/^(\d+)-(\d{4}-\d{2}-\d{2})\.csv$/)
     if (!match) {
       results.push({ file: file.name, error: '檔名格式錯誤' })
