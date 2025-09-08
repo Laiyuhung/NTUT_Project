@@ -11,66 +11,73 @@ export const config = {
   },
 };
 
-export async function POST(req: NextRequest) {
-  console.log('📥 [upload-csv] 接收到請求')
 
-  const formData = await req.formData()
-  const file = formData.get('file') as File
-  const station_name = formData.get('station_name') as string
-  const upload_date = formData.get('upload_date') as string
-
-  console.log('📄 formData:', {
-    file: file?.name,
-    station_name,
-    upload_date,
-  })
-
-  if (!file || !station_name || !upload_date) {
-    console.error('❌ 缺少必要欄位')
-    return NextResponse.json({ error: '缺少必要欄位' }, { status: 400 })
-  }
-
-  // 🔍 查詢 station_code
-  const { data: mapData, error: mapError } = await supabase
+// 取得所有 station_code_map
+async function getStationCodeMap() {
+  const { data, error } = await supabase
     .from('station_code_map')
-    .select('station_code')
-    .eq('station_name', station_name)
-    .maybeSingle()
-
-  console.log('🗺️ station_code 查詢結果:', { mapData, mapError })
-
-  if (mapError || !mapData) {
-    return NextResponse.json({ error: `查無站名：${station_name}` }, { status: 400 })
-  }
-
-  const station_code = mapData.station_code
-  const filePath = `csv/${station_code}_${upload_date}_${uuidv4()}.csv`
-
-  console.log('📁 準備上傳路徑:', filePath)  // 上傳 CSV
-  const { data: uploadData, error: uploadError } = await supabase.storage
-    .from('uploads')
-    .upload(filePath, file, { upsert: false })
-
-  if (uploadError) {
-    console.error('❌ 上傳錯誤:', uploadError)
-    return NextResponse.json({ error: uploadError.message }, { status: 500 })
-  }
-
-  console.log('✅ 檔案上傳成功:', uploadData?.path)
-
-  // 寫入 DB
-  const { error: insertError } = await supabase.from('station_csv_uploads').insert({
-    station_name,
-    upload_date,
-    file_url: uploadData?.path,
+    .select('station_code, station_name')
+  if (error) throw new Error('查詢 station_code_map 失敗')
+  // 建立 code->name 與 name->code map
+  const codeToName = new Map<string, string>()
+  const nameToCode = new Map<string, string>()
+  data?.forEach((row: any) => {
+    codeToName.set(row.station_code, row.station_name)
+    nameToCode.set(row.station_name, row.station_code)
   })
+  return { codeToName, nameToCode }
+}
 
-  if (insertError) {
-    console.error('❌ 寫入資料表錯誤:', insertError)
-    return NextResponse.json({ error: insertError.message }, { status: 500 })
+export async function POST(req: NextRequest) {
+  console.log('📥 [upload-csv] 多檔案上傳請求')
+  const formData = await req.formData()
+  const files = formData.getAll('file') as File[]
+  if (!files.length) {
+    return NextResponse.json({ error: '缺少檔案' }, { status: 400 })
   }
 
-  console.log('✅ 資料表寫入成功')
+  // 取得 code->name map
+  let codeToName: Map<string, string>
+  try {
+    ({ codeToName } = await getStationCodeMap())
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
 
-  return NextResponse.json({ success: true, filePath })
+  const results = []
+  for (const file of files) {
+    // 解析檔名: 466920-2025-09-05.csv
+    const match = file.name.match(/^(\d+)-(\d{4}-\d{2}-\d{2})\.csv$/)
+    if (!match) {
+      results.push({ file: file.name, error: '檔名格式錯誤' })
+      continue
+    }
+    const [_, station_code, upload_date] = match
+    const station_name = codeToName.get(station_code)
+    if (!station_name) {
+      results.push({ file: file.name, error: `查無測站碼: ${station_code}` })
+      continue
+    }
+    const filePath = `csv/${station_code}_${upload_date}_${uuidv4()}.csv`
+    // 上傳
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('uploads')
+      .upload(filePath, file, { upsert: false })
+    if (uploadError) {
+      results.push({ file: file.name, error: uploadError.message })
+      continue
+    }
+    // 寫入 DB
+    const { error: insertError } = await supabase.from('station_csv_uploads').insert({
+      station_name,
+      upload_date,
+      file_url: uploadData?.path,
+    })
+    if (insertError) {
+      results.push({ file: file.name, error: insertError.message })
+      continue
+    }
+    results.push({ file: file.name, success: true, filePath })
+  }
+  return NextResponse.json({ results })
 }
