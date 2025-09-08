@@ -188,20 +188,28 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
   }, [activeTab])
 
   // 篩選照片
-  const filteredPhotos = photos.filter(photo => {
-    if (photoFilters.station && photo.nearest_station !== photoFilters.station) return false
-    if (photoFilters.startDate && photo.taken_at < photoFilters.startDate) return false
-    if (photoFilters.endDate && photo.taken_at > photoFilters.endDate) return false
-    return true
-  })
+  // 先依日期由近到遠排序，再篩選
+  const filteredPhotos = photos
+    .slice()
+    .sort((a, b) => b.taken_at.localeCompare(a.taken_at))
+    .filter(photo => {
+      if (photoFilters.station && photo.nearest_station !== photoFilters.station) return false
+      if (photoFilters.startDate && photo.taken_at < photoFilters.startDate) return false
+      if (photoFilters.endDate && photo.taken_at > photoFilters.endDate) return false
+      return true
+    })
 
   // 篩選CSV
-  const filteredCsvs = csvFiles.filter(csv => {
-    if (csvFilters.station && csv.station_name !== csvFilters.station) return false
-    if (csvFilters.startDate && csv.upload_date < csvFilters.startDate) return false
-    if (csvFilters.endDate && csv.upload_date > csvFilters.endDate) return false
-    return true
-  })
+  // 先依日期由近到遠排序，再篩選
+  const filteredCsvs = csvFiles
+    .slice()
+    .sort((a, b) => b.upload_date.localeCompare(a.upload_date))
+    .filter(csv => {
+      if (csvFilters.station && csv.station_name !== csvFilters.station) return false
+      if (csvFilters.startDate && csv.upload_date < csvFilters.startDate) return false
+      if (csvFilters.endDate && csv.upload_date > csvFilters.endDate) return false
+      return true
+    })
 
   // 處理照片選擇
   const handlePhotoSelect = (photoId: string) => {
