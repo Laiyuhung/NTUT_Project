@@ -13,7 +13,7 @@ export default function CsvUploadPage() {
   // 解析檔名: 466920-2025-09-05.csv 或 466920-2025-09-05 (1).csv
   function parseFileName(name: string): { station_code: string; upload_date: string } | null {
     // 支援 466920-2025-09-05.csv 或 466920-2025-09-05 (1).csv
-    const match = name.match(/^(\d+)-(\d{4}-\d{2}-\d{2})(?: \(\d+\))?\.csv$/)
+    const match = name.match(/^([A-Za-z0-9]+)-(\d{4}-\d{2}-\d{2})(?: \(\d+\))?\.csv$/)
     if (!match) return null
     return { station_code: match[1], upload_date: match[2] }
   }
