@@ -5,10 +5,11 @@ import { useState } from 'react'
 export default function CsvUploadPage() {
   const [files, setFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
-  const [results, setResults] = useState<any[]>([])
+  type UploadResult = { file: string; success?: boolean; error?: string; filePath?: string }
+  const [results, setResults] = useState<UploadResult[]>([])
 
   // 解析檔名: 466920-2025-09-05.csv
-  function parseFileName(name: string) {
+  function parseFileName(name: string): { station_code: string; upload_date: string } | null {
     const match = name.match(/^(\d+)-(\d{4}-\d{2}-\d{2})\.csv$/)
     if (!match) return null
     return { station_code: match[1], upload_date: match[2] }
