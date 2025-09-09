@@ -9,8 +9,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 解析所有檔案內容，合併標頭與資料
-    let masterHeaders: string[] = []
-    let allRows: string[][] = []
+  let masterHeaders: string[] = []
+  const allRows: string[][] = []
     for (let i = 0; i < files.length; i++) {
       const csv = files[i]
       const lines = csv.split('\n').filter((line: string) => line.trim() !== '')
