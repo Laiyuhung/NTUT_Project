@@ -76,6 +76,7 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
   const [selectedCsvs, setSelectedCsvs] = useState<string[]>([])
   const [downloading, setDownloading] = useState(false)
   const [csvDownloading, setCsvDownloading] = useState(false)
+   const [csvDownloadProgress, setCsvDownloadProgress] = useState<number | null>(null)
   // 調試：檢查 bucket 檔案
   /* const checkBucketFiles = async () => {
     try {
@@ -395,6 +396,7 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
     }
 
     setCsvDownloading(true)
+    setCsvDownloadProgress(0)
 
     try {
       const response = await fetch('/api/download/csv-merge', {
@@ -407,14 +409,45 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
       })
 
       if (response.ok) {
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `merged_data_${new Date().toISOString().slice(0, 10)}.csv`
-        a.click()
-        window.URL.revokeObjectURL(url)
-        alert(`成功合併下載 ${selectedCsvs.length} 個 CSV 檔案！`)
+        // 取得總長度
+        const contentLength = response.headers.get('content-length')
+        const total = contentLength ? parseInt(contentLength, 10) : null
+        const reader = response.body?.getReader()
+        let received = 0
+        const chunks = []
+
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            if (value) {
+              chunks.push(value)
+              received += value.length
+              if (total) {
+                setCsvDownloadProgress(Math.round((received / total) * 100))
+              }
+            }
+          }
+          // 合併 chunks
+          const blob = new Blob(chunks, { type: 'text/csv' })
+          const url = window.URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `merged_data_${new Date().toISOString().slice(0, 10)}.csv`
+          a.click()
+          window.URL.revokeObjectURL(url)
+          alert(`成功合併下載 ${selectedCsvs.length} 個 CSV 檔案！`)
+        } else {
+          // fallback: 沒有 reader 支援
+          const blob = await response.blob()
+          const url = window.URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `merged_data_${new Date().toISOString().slice(0, 10)}.csv`
+          a.click()
+          window.URL.revokeObjectURL(url)
+          alert(`成功合併下載 ${selectedCsvs.length} 個 CSV 檔案！`)
+        }
       } else {
         const errorData = await response.json().catch(() => ({ error: '未知錯誤' }))
         alert(`合併下載失敗：${errorData.error || 'HTTP ' + response.status}`)
@@ -425,6 +458,7 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
       alert(`合併下載失敗：${errorMessage}`)
     } finally {
       setCsvDownloading(false)
+      setCsvDownloadProgress(null)
     }
   }
   // 格式化檔案大小
@@ -832,6 +866,18 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
                   `合併下載 (${selectedCsvs.length})`
                 )}
               </button>
+                {/* 下載進度條 */}
+                {csvDownloading && csvDownloadProgress !== null && (
+                  <div className="w-full mt-2">
+                    <div className="h-2 bg-gray-200 rounded">
+                      <div
+                        className="h-2 bg-green-500 rounded"
+                        style={{ width: `${csvDownloadProgress}%`, transition: 'width 0.2s' }}
+                      ></div>
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1 text-right">{csvDownloadProgress}%</div>
+                  </div>
+                )}
             </div>
 
             {/* CSV清單 */}
