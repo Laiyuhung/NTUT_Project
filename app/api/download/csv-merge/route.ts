@@ -9,35 +9,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '請提供有效的CSV檔案ID陣列' }, { status: 400 })
     }
 
-    // 從 Supabase 查詢 CSV 檔案資訊
-    let query = supabase
-      .from('station_csv_uploads')
-      .select('*')
-      .in('id', csvIds)
-
-    // 進一步根據篩選條件過濾
-    if (filters) {
-      if (filters.station) {
-        query = query.eq('station_name', filters.station)
+    // Supabase 單次 select 最多 1000 筆，需分批查詢
+    const BATCH_SIZE = 1000
+    let allCsvFiles: any[] = []
+    let lastError = null
+    for (let i = 0; i < csvIds.length; i += BATCH_SIZE) {
+      const batchIds = csvIds.slice(i, i + BATCH_SIZE)
+      let query = supabase
+        .from('station_csv_uploads')
+        .select('*')
+        .in('id', batchIds)
+      if (filters) {
+        if (filters.station) {
+          query = query.eq('station_name', filters.station)
+        }
+        if (filters.startDate) {
+          query = query.gte('upload_date', filters.startDate)
+        }
+        if (filters.endDate) {
+          query = query.lte('upload_date', filters.endDate)
+        }
       }
-      if (filters.startDate) {
-        query = query.gte('upload_date', filters.startDate)
+      const { data, error } = await query
+      if (error) {
+        lastError = error
+        console.error('查詢CSV檔案失敗：', error)
+        // 不直接 return，繼續查詢其他 batch
       }
-      if (filters.endDate) {
-        query = query.lte('upload_date', filters.endDate)
+      if (data && data.length > 0) {
+        allCsvFiles = allCsvFiles.concat(data)
       }
     }
-
-    const { data: csvFiles, error } = await query
-
-    if (error) {
-      console.error('查詢CSV檔案失敗：', error)
+    if (lastError && allCsvFiles.length === 0) {
       return NextResponse.json({ error: '查詢CSV檔案失敗' }, { status: 500 })
     }
-
-    if (!csvFiles || csvFiles.length === 0) {
+    if (!allCsvFiles || allCsvFiles.length === 0) {
       return NextResponse.json({ error: '沒有符合條件的資料' }, { status: 400 })
     }
+    const csvFiles = allCsvFiles
 
     // 第一步：收集所有CSV檔案的內容和標頭
     const allCsvData: Array<{
@@ -133,14 +142,44 @@ export async function POST(request: NextRequest) {
     }
 
     // 建立合併後的CSV內容
-    const csvContent = mergedData.join('\n')    // 返回合併後的CSV檔案
+    const csvContent = mergedData.join('\n')
     const timestamp = new Date().toISOString().replace(/[-:.]/g, '').slice(0, 15) // YYYYMMDDTHHMMSS
-    return new NextResponse(csvContent, {
-      headers: {
-        'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="merged_data_${timestamp}.csv"`
-      }
-    })
+
+    // 嘗試用 ReadableStream 方式回傳，讓前端能即時顯示進度
+    try {
+      const encoder = new TextEncoder()
+      const totalLength = encoder.encode(csvContent).length
+      let sentLength = 0
+      const stream = new ReadableStream({
+        start(controller) {
+          // 分段寫入，讓前端能即時收到
+          for (let i = 0; i < mergedData.length; i++) {
+            const line = mergedData[i] + '\n'
+            const chunk = encoder.encode(line)
+            controller.enqueue(chunk)
+            sentLength += chunk.length
+            // 可在這裡加延遲模擬大檔案
+            // await new Promise(r => setTimeout(r, 1))
+          }
+          controller.close()
+        }
+      })
+      return new NextResponse(stream, {
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="merged_data_${timestamp}.csv"`,
+          'Content-Length': totalLength.toString()
+        }
+      })
+    } catch (e) {
+      // fallback: 若不支援 stream，直接回傳整個內容
+      return new NextResponse(csvContent, {
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="merged_data_${timestamp}.csv"`
+        }
+      })
+    }
 
   } catch (error) {
     console.error('合併下載CSV失敗：', error)

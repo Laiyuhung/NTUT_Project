@@ -409,12 +409,12 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
       })
 
       if (response.ok) {
-        // 取得總長度
         const contentLength = response.headers.get('content-length')
         const total = contentLength ? parseInt(contentLength, 10) : null
         const reader = response.body?.getReader()
         let received = 0
         const chunks = []
+        let lastProgress = 0
 
         if (reader) {
           while (true) {
@@ -424,7 +424,15 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
               chunks.push(value)
               received += value.length
               if (total) {
-                setCsvDownloadProgress(Math.round((received / total) * 100))
+                // 只在進度有明顯變化時才 setState，減少 re-render
+                const percent = Math.floor((received / total) * 100)
+                if (percent !== lastProgress) {
+                  setCsvDownloadProgress(percent)
+                  lastProgress = percent
+                }
+              } else {
+                // 沒有 content-length 時，顯示 indeterminate 狀態
+                setCsvDownloadProgress(null)
               }
             }
           }
@@ -433,7 +441,7 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
           const url = window.URL.createObjectURL(blob)
           const a = document.createElement('a')
           a.href = url
-          a.download = `merged_data_${new Date().toISOString().slice(0, 10)}.csv`
+          a.download = `merged_data_${new Date().toISOString().replace(/[-:.]/g, '').slice(0, 15)}.csv`
           a.click()
           window.URL.revokeObjectURL(url)
           alert(`成功合併下載 ${selectedCsvs.length} 個 CSV 檔案！`)
@@ -443,7 +451,7 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
           const url = window.URL.createObjectURL(blob)
           const a = document.createElement('a')
           a.href = url
-          a.download = `merged_data_${new Date().toISOString().slice(0, 10)}.csv`
+          a.download = `merged_data_${new Date().toISOString().replace(/[-:.]/g, '').slice(0, 15)}.csv`
           a.click()
           window.URL.revokeObjectURL(url)
           alert(`成功合併下載 ${selectedCsvs.length} 個 CSV 檔案！`)
@@ -867,15 +875,24 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
                 )}
               </button>
                 {/* 下載進度條 */}
-                {csvDownloading && csvDownloadProgress !== null && (
+                {csvDownloading && (
                   <div className="w-full mt-2">
-                    <div className="h-2 bg-gray-200 rounded">
-                      <div
-                        className="h-2 bg-green-500 rounded"
-                        style={{ width: `${csvDownloadProgress}%`, transition: 'width 0.2s' }}
-                      ></div>
+                    <div className="h-2 bg-gray-200 rounded overflow-hidden">
+                      {csvDownloadProgress === null ? (
+                        <div className="h-2 bg-green-500 rounded animate-pulse w-full" style={{ width: '100%' }}></div>
+                      ) : (
+                        <div
+                          className="h-2 bg-green-500 rounded"
+                          style={{ width: `${csvDownloadProgress}%`, transition: 'width 0.2s' }}
+                        ></div>
+                      )}
                     </div>
-                    <div className="text-xs text-gray-600 mt-1 text-right">{csvDownloadProgress}%</div>
+                    {csvDownloadProgress !== null && (
+                      <div className="text-xs text-gray-600 mt-1 text-right">{csvDownloadProgress}%</div>
+                    )}
+                    {csvDownloadProgress === null && (
+                      <div className="text-xs text-gray-600 mt-1 text-right">下載中...</div>
+                    )}
                   </div>
                 )}
             </div>
