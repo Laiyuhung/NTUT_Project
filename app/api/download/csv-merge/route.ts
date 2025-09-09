@@ -101,32 +101,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '無法讀取任何CSV資料' }, { status: 500 })
     }
 
-    // 第二步：找出最完整的標頭（欄位數量最多的）
-    let masterHeaders: string[] = []
-    let maxColumnCount = 0
-
+    // 取所有欄位名稱的聯集（union），順序以出現順序為主
+    const headerSet = new Set<string>()
     for (const csvData of allCsvData) {
-      if (csvData.headers.length > maxColumnCount) {
-        maxColumnCount = csvData.headers.length
-        masterHeaders = csvData.headers
-      }
+      for (const h of csvData.headers) headerSet.add(h)
     }
-
+    const masterHeaders = Array.from(headerSet)
     // 加上固定的欄位
     const finalHeaders = [...masterHeaders, '上傳日期', '測站名稱']
 
-    // 第三步：對齊所有資料到統一格式
+    // 對齊所有資料到統一格式
     const mergedData: string[] = []
-    
-    // 加入標頭
     mergedData.push(finalHeaders.join(','))
-
-    // 處理每個CSV的資料
     for (const csvData of allCsvData) {
       for (const row of csvData.rows) {
         const alignedRow: string[] = []
-        
-        // 對照主標頭，填入對應資料或NA
         for (const masterHeader of masterHeaders) {
           const headerIndex = csvData.headers.indexOf(masterHeader)
           if (headerIndex !== -1 && headerIndex < row.length) {
@@ -135,11 +124,8 @@ export async function POST(request: NextRequest) {
             alignedRow.push('NA')
           }
         }
-        
-        // 加上上傳日期和測站名稱
         alignedRow.push(csvData.uploadDate)
         alignedRow.push(csvData.stationName)
-        
         mergedData.push(alignedRow.join(','))
       }
     }

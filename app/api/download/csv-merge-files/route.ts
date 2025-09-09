@@ -9,26 +9,31 @@ export async function POST(request: NextRequest) {
     }
 
     // 解析所有檔案內容，合併標頭與資料
-  let masterHeaders: string[] = []
-  const allRows: string[][] = []
+    // 取所有檔案欄位名稱聯集
+    const headerSet = new Set<string>()
+    const allRows: { row: string[], headers: string[] }[] = []
     for (let i = 0; i < files.length; i++) {
       const csv = files[i]
       const lines = csv.split('\n').filter((line: string) => line.trim() !== '')
       if (lines.length < 2) continue
       const headers = lines[0].split(',').map((h: string) => h.trim())
-      if (headers.length > masterHeaders.length) masterHeaders = headers
+      headers.forEach((h: string) => headerSet.add(h))
       const rows = lines.slice(1).map((line: string) => line.split(',').map((cell: string) => cell.trim()))
-      allRows.push(...rows)
+      for (const row of rows) {
+        allRows.push({ row, headers })
+      }
     }
+    const masterHeaders = Array.from(headerSet)
     if (masterHeaders.length === 0 || allRows.length === 0) {
       return NextResponse.json({ error: '無法解析任何CSV內容' }, { status: 400 })
     }
     // 對齊所有資料到主標頭
     const merged: string[] = [masterHeaders.join(',')]
-    for (const row of allRows) {
+    for (const { row, headers } of allRows) {
       const aligned: string[] = []
-      for (let i = 0; i < masterHeaders.length; i++) {
-        aligned.push(row[i] ?? 'NA')
+      for (const h of masterHeaders) {
+        const idx = headers.indexOf(h)
+        aligned.push(idx !== -1 && idx < row.length ? row[idx] : 'NA')
       }
       merged.push(aligned.join(','))
     }
