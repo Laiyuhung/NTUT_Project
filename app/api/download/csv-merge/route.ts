@@ -11,8 +11,15 @@ export async function POST(request: NextRequest) {
 
     // Supabase 單次 select 最多 1000 筆，需分批查詢
     const BATCH_SIZE = 1000
-    let allCsvFiles: any[] = []
-    let lastError = null
+    type CsvFile = {
+      id: string
+      file_url: string
+      upload_date: string
+      station_name: string
+      [key: string]: unknown
+    }
+    let allCsvFiles: CsvFile[] = []
+    let lastError: unknown = null
     for (let i = 0; i < csvIds.length; i += BATCH_SIZE) {
       const batchIds = csvIds.slice(i, i + BATCH_SIZE)
       let query = supabase
@@ -46,7 +53,7 @@ export async function POST(request: NextRequest) {
     if (!allCsvFiles || allCsvFiles.length === 0) {
       return NextResponse.json({ error: '沒有符合條件的資料' }, { status: 400 })
     }
-    const csvFiles = allCsvFiles
+  const csvFiles: CsvFile[] = allCsvFiles
 
     // 第一步：收集所有CSV檔案的內容和標頭
     const allCsvData: Array<{
@@ -149,17 +156,12 @@ export async function POST(request: NextRequest) {
     try {
       const encoder = new TextEncoder()
       const totalLength = encoder.encode(csvContent).length
-      let sentLength = 0
       const stream = new ReadableStream({
         start(controller) {
-          // 分段寫入，讓前端能即時收到
           for (let i = 0; i < mergedData.length; i++) {
             const line = mergedData[i] + '\n'
             const chunk = encoder.encode(line)
             controller.enqueue(chunk)
-            sentLength += chunk.length
-            // 可在這裡加延遲模擬大檔案
-            // await new Promise(r => setTimeout(r, 1))
           }
           controller.close()
         }
@@ -171,7 +173,7 @@ export async function POST(request: NextRequest) {
           'Content-Length': totalLength.toString()
         }
       })
-    } catch (e) {
+    } catch {
       // fallback: 若不支援 stream，直接回傳整個內容
       return new NextResponse(csvContent, {
         headers: {
