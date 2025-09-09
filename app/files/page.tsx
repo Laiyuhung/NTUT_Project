@@ -76,7 +76,8 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
   const [selectedCsvs, setSelectedCsvs] = useState<string[]>([])
   const [downloading, setDownloading] = useState(false)
   const [csvDownloading, setCsvDownloading] = useState(false)
-   const [csvDownloadProgress, setCsvDownloadProgress] = useState<number | null>(null)
+  const [csvDownloadProgress, setCsvDownloadProgress] = useState<number | null>(null)
+  const [csvDownloadStep, setCsvDownloadStep] = useState<{current: number, total: number} | null>(null)
   // 調試：檢查 bucket 檔案
   /* const checkBucketFiles = async () => {
     try {
@@ -393,49 +394,61 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
       alert('下載正在進行中，請稍候...')
       return
     }
-    setCsvDownloading(true)
-    setCsvDownloadProgress(0)
-    const BATCH_SIZE = 50
+  setCsvDownloading(true)
+  setCsvDownloadProgress(0)
+  setCsvDownloadStep(null)
+  const BATCH_SIZE = 50
     try {
       // 1. 分批下載小檔案
-      const batchCount = Math.ceil(selectedCsvs.length / BATCH_SIZE)
-      const batchCsvTexts: string[] = []
-      for (let i = 0; i < batchCount; i++) {
-        const batchIds = selectedCsvs.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE)
+      // 計算總批次數（每50一批，最後合併再+1）
+      let totalBatches = 0
+      let remain = selectedCsvs.length
+      while (remain > 0) {
+        totalBatches += Math.ceil(remain / BATCH_SIZE >= 1 ? 1 : 0)
+        remain -= BATCH_SIZE
+      }
+      const totalSteps = totalBatches + 1 // 批次下載 + 合併
+      let currentStep = 0
+      const batchCsvTexts: string[] = [];
+      for (let i = 0; i < selectedCsvs.length; i += BATCH_SIZE) {
+        const batchIds = selectedCsvs.slice(i, i + BATCH_SIZE);
         const response = await fetch('/api/download/csv-merge', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ csvIds: batchIds, filters: csvFilters })
-        })
+        });
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: '未知錯誤' }))
-          throw new Error(errorData.error || `HTTP ${response.status}`)
+          const errorData = await response.json().catch(() => ({ error: '未知錯誤' }));
+          throw new Error(errorData.error || `HTTP ${response.status}`);
         }
-        const blob = await response.blob()
-        const text = await blob.text()
-        batchCsvTexts.push(text)
-        setCsvDownloadProgress(Math.round(((i + 1) / (batchCount + 1)) * 100))
+        const blob = await response.blob();
+        const text = await blob.text();
+        batchCsvTexts.push(text);
+        currentStep = Math.floor(i / BATCH_SIZE) + 1;
+        setCsvDownloadStep({ current: currentStep, total: totalSteps });
+        setCsvDownloadProgress(Math.round((currentStep / totalSteps) * 100));
       }
       // 2. 呼叫合併API
-      setCsvDownloadProgress(99)
+      setCsvDownloadStep({ current: totalSteps, total: totalSteps });
+      setCsvDownloadProgress(Math.round((totalSteps / totalSteps) * 100));
       const mergeResp = await fetch('/api/download/csv-merge-files', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ files: batchCsvTexts })
-      })
+      });
       if (!mergeResp.ok) {
-        const errorData = await mergeResp.json().catch(() => ({ error: '未知錯誤' }))
-        throw new Error(errorData.error || `HTTP ${mergeResp.status}`)
+        const errorData = await mergeResp.json().catch(() => ({ error: '未知錯誤' }));
+        throw new Error(errorData.error || `HTTP ${mergeResp.status}`);
       }
-      const mergedBlob = await mergeResp.blob()
-      const url = window.URL.createObjectURL(mergedBlob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `merged_final_${new Date().toISOString().replace(/[-:.]/g, '').slice(0, 15)}.csv`
-      a.click()
-      window.URL.revokeObjectURL(url)
-      setCsvDownloadProgress(100)
-      alert(`成功合併下載 ${selectedCsvs.length} 個 CSV 檔案！`)
+      const mergedBlob = await mergeResp.blob();
+      const url = window.URL.createObjectURL(mergedBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `merged_final_${new Date().toISOString().replace(/[-:.]/g, '').slice(0, 15)}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      setCsvDownloadProgress(100);
+      alert(`成功合併下載 ${selectedCsvs.length} 個 CSV 檔案！`);
     } catch (error) {
       console.error('合併下載錯誤：', error)
       const errorMessage = error instanceof Error ? error.message : '未知錯誤'
@@ -443,6 +456,7 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
     } finally {
       setCsvDownloading(false)
       setCsvDownloadProgress(null)
+      setCsvDownloadStep(null)
     }
   }
   // 格式化檔案大小
@@ -863,12 +877,17 @@ export default function FilesViewPage() {  const [activeTab, setActiveTab] = use
                         ></div>
                       )}
                     </div>
-                    {csvDownloadProgress !== null && (
-                      <div className="text-xs text-gray-600 mt-1 text-right">{csvDownloadProgress}%</div>
-                    )}
-                    {csvDownloadProgress === null && (
-                      <div className="text-xs text-gray-600 mt-1 text-right">下載中...</div>
-                    )}
+                    <div className="flex justify-between text-xs text-gray-600 mt-1">
+                      {csvDownloadStep && (
+                        <span>已完成 {csvDownloadStep.current}/{csvDownloadStep.total} 批次</span>
+                      )}
+                      {csvDownloadProgress !== null && (
+                        <span>{csvDownloadProgress}%</span>
+                      )}
+                      {csvDownloadProgress === null && (
+                        <span>下載中...</span>
+                      )}
+                    </div>
                   </div>
                 )}
             </div>
