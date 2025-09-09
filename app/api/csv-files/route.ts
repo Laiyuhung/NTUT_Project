@@ -1,5 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '../../../lib/supabaseClient'
+
+import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '../../../lib/supabaseClient';
+
+interface StationCsvUpload {
+  id: number;
+  filename?: string;
+  station_name?: string;
+  upload_date?: string;
+  created_at?: string;
+  record_count?: number;
+  file_url?: string;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +23,7 @@ export async function GET(request: NextRequest) {
     const pageSize = 1000;
     let from = 0;
     let to = pageSize - 1;
-    let allData: any[] = [];
+  let allData: StationCsvUpload[] = [];
     let hasMore = true;
 
     while (hasMore) {
