@@ -8,15 +8,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    // 增加請求體大小限制檢查
-    const contentLength = request.headers.get('content-length');
-    if (contentLength && parseInt(contentLength) > 200 * 1024 * 1024) { // 200MB 限制
-      return NextResponse.json(
-        { error: '文件太大，超過200MB限制' },
-        { status: 413 }
-      );
-    }
-    
+    // 不限制檔案大小
     const formData = await request.formData();
     const modelFile = formData.get('model') as File;
     const originalFileName = formData.get('originalFileName') as string || '';
