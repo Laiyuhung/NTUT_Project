@@ -1,6 +1,16 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
+
+// 允許最大 200MB 上傳，避免 413 Payload Too Large
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '200mb',
+    },
+  },
+};
 
 // 設定最大文件大小 (200MB)
 export const maxDuration = 300; // 5分鐘超時
