@@ -15,7 +15,11 @@ export async function GET() {
     const stMatch = jsText.match(/var\s+ST\s*=\s*(\{[\s\S]*?\});/);
     let stData = null;
     if (stMatch) {
-      stData = JSON.parse(stMatch[1].replace(/(\w+):/g, '"$1":'));
+      // 先將單引號換成雙引號
+      let jsonStr = stMatch[1].replace(/'/g, '"');
+      // 再將未加引號的 key 補上雙引號
+      jsonStr = jsonStr.replace(/(\w+)\s*:/g, '"$1":');
+      stData = JSON.parse(jsonStr);
     }
 
     // 3. 取得 HTML 頁面
