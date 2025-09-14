@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 // 工具：修正中央氣象署 JS 物件字串為合法 JSON
 function fixCwaJson(str: string): string {
-  // 1. key 變雙引號（僅處理物件 key，不處理值）
+  // 1. key 變雙引號
   let fixed = str.replace(/([{,]\s*)([A-Za-z0-9_]+)\s*:/g, '$1"$2":');
 
   // 2. 單引號值變雙引號（保留內部的 \'）
@@ -10,14 +10,11 @@ function fixCwaJson(str: string): string {
     return `"${val.replace(/\\'/g, "'")}"`;
   });
 
-  // 3. 移除多餘逗號（物件或陣列結尾）
+  // 3. 移除多餘逗號
   fixed = fixed.replace(/,\s*([}\]])/g, "$1");
 
   // 4. 特殊容錯修正
-  // 修正 Da"an → Da'an
   fixed = fixed.replace(/Da"an/g, "Da'an");
-
-  // 修正尾端多出來的 '}}
   fixed = fixed.replace(/'}}/g, '"}}');
 
   return fixed;
@@ -30,7 +27,6 @@ export async function GET() {
     );
     const jsText = await jsRes.text();
 
-    // 抓取 ST['63'] 區塊（完整物件）
     const match = jsText.match(/'63'\s*:\s*({[\s\S]*})\s*}\s*;\s*var/);
     if (!match) {
       return NextResponse.json(
@@ -51,7 +47,6 @@ export async function GET() {
       );
     }
 
-    // 型別定義
     type StationRaw = {
       Date?: string;
       Time?: string;
@@ -60,12 +55,11 @@ export async function GET() {
       Temperature?: { C?: { C?: string } };
       Humidity?: { C?: string };
       Rain?: { C?: string };
-      Wind?: { MS?: { C?: string } };
+      Wind?: { MS?: { C?: string }; BF?: { C?: string } };
       Pressure?: { C?: string };
       Sunshine?: { C?: string };
     };
 
-    // 整理成乾淨陣列
     const stations = (Object.values(obj) as StationRaw[]).map((s) => ({
       date: s.Date ?? "",
       time: s.Time ?? "",
@@ -74,7 +68,8 @@ export async function GET() {
       temperature: s.Temperature?.C?.C ?? "",
       humidity: s.Humidity?.C ?? "",
       rain: s.Rain?.C ?? "",
-      wind: s.Wind?.MS?.C ?? "",
+      // wind_ms: 新增欄位（取 MS）
+      wind_ms: s.Wind?.MS?.C ?? "",
       pressure: s.Pressure?.C ?? "",
       sunshine: s.Sunshine?.C ?? "",
     }));
@@ -82,7 +77,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       stations,
-      raw: jsText, // 備查原始內容
+      raw: jsText,
     });
   } catch (e) {
     return NextResponse.json(

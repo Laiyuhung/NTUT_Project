@@ -9,7 +9,7 @@ type Station = {
   temperature: string;
   humidity: string;
   rain: string;
-  wind: string;
+  wind_ms: string; // 👈 新增
   pressure: string;
   sunshine: string;
 };
@@ -79,7 +79,7 @@ export default function CwaPage() {
                   <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.temperature}</td>
                   <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.humidity}</td>
                   <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.rain}</td>
-                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.wind}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.wind_ms}</td>
                   <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.pressure}</td>
                   <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.sunshine}</td>
                 </tr>
