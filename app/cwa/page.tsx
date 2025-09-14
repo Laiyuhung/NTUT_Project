@@ -2,8 +2,7 @@
 import { useEffect, useState } from "react";
 
 type CwaWeatherResponse = {
-  countyData: Record<string, unknown>;
-  tableHtml: string | null;
+  jsText: string;
   success: boolean;
   error?: string;
 };
@@ -32,13 +31,10 @@ export default function CwaPage() {
 
   return (
     <div style={{ padding: 24 }}>
-      <h1>中央氣象署爬蟲狀態</h1>
-      <h2>County Data</h2>
-      <pre style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, overflowX: 'auto' }}>
-        {JSON.stringify(data.countyData, null, 2)}
+      <h1>中央氣象署 JS 原始內容</h1>
+      <pre style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, overflowX: 'auto', maxHeight: 600 }}>
+        {data.jsText}
       </pre>
-      <h2>HTML Table</h2>
-      <div dangerouslySetInnerHTML={{ __html: data.tableHtml || '' }} style={{ overflowX: 'auto', background: '#fff', border: '1px solid #eee', borderRadius: 6, padding: 12 }} />
     </div>
   );
 }
