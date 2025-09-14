@@ -11,11 +11,15 @@ export async function GET() {
     // 解析 ST 資料
     let stations: unknown[] = [];
     try {
-      // 用 Function 解析 ST 物件，避免 globalThis 污染
-      const getST = new Function('js', `let ST = undefined; ${jsText}; return ST;`);
-      const ST = getST(jsText);
-      if (ST && ST['63']) {
-        stations = Object.values(ST['63']);
+      // 用正則抽出 ST['63'] 物件字串
+      const match = jsText.match(/'63'\s*:\s*({[\s\S]*?})\s*[,}]/);
+      if (match) {
+        // 讓 key 變成雙引號，方便 JSON.parse
+        let objStr = match[1]
+          .replace(/(\w+):/g, '"$1":')
+          .replace(/'([^']*)'/g, '"$1"');
+        const obj = JSON.parse(objStr);
+        stations = Object.values(obj);
       }
     } catch {
       // 解析失敗 stations 保持空陣列
