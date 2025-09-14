@@ -10,7 +10,6 @@ type Station = {
   Rain: { C: string; E: string } | string;
   WindDir: { C: string; E: string } | string;
 };
-import { NextResponse } from 'next/server';
 
 // 取得中央氣象署 JS 與 HTML，解析氣象資料
 export async function GET() {
