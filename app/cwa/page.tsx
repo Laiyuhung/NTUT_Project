@@ -1,9 +1,22 @@
 "use client";
 import { useEffect, useState } from "react";
 
+type Station = {
+  date: string;
+  time: string;
+  name: string;
+  weather: string;
+  temperature: string;
+  humidity: string;
+  rain: string;
+  wind: string;
+  pressure: string;
+  sunshine: string;
+};
+
 type CwaWeatherResponse = {
-  jsText: string;
-  stations?: unknown[];
+  stations: Station[];
+  raw: string;
   success: boolean;
   error?: string;
 };
@@ -33,7 +46,7 @@ export default function CwaPage() {
   return (
     <div style={{ padding: 24 }}>
       <h1>中央氣象署觀測站資料</h1>
-      {Array.isArray(data.stations) && data.stations.length > 0 ? (
+  {Array.isArray(data.stations) && data.stations.length > 0 ? (
         <div style={{ overflowX: 'auto', marginBottom: 32 }}>
           <table style={{ borderCollapse: 'collapse', minWidth: 900 }}>
             <thead>
@@ -51,23 +64,20 @@ export default function CwaPage() {
               </tr>
             </thead>
             <tbody>
-              {data.stations.map((s, i) => {
-                const r = s as Record<string, string>;
-                return (
-                  <tr key={i}>
-                    <td>{r.date}</td>
-                    <td>{r.time}</td>
-                    <td>{r.name}</td>
-                    <td>{r.weather}</td>
-                    <td>{r.temperature}</td>
-                    <td>{r.humidity}</td>
-                    <td>{r.rain}</td>
-                    <td>{r.wind}</td>
-                    <td>{r.pressure}</td>
-                    <td>{r.sunshine}</td>
-                  </tr>
-                );
-              })}
+              {data.stations.map((s, i) => (
+                <tr key={i}>
+                  <td>{s.date}</td>
+                  <td>{s.time}</td>
+                  <td>{s.name}</td>
+                  <td>{s.weather}</td>
+                  <td>{s.temperature}</td>
+                  <td>{s.humidity}</td>
+                  <td>{s.rain}</td>
+                  <td>{s.wind}</td>
+                  <td>{s.pressure}</td>
+                  <td>{s.sunshine}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -76,7 +86,7 @@ export default function CwaPage() {
       )}
       <h2 style={{ marginTop: 32 }}>中央氣象署 JS 原始內容</h2>
       <pre style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, overflowX: 'auto', maxHeight: 600 }}>
-        {data.jsText}
+        {data.raw}
       </pre>
     </div>
   );
