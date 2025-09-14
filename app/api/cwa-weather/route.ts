@@ -15,8 +15,20 @@ export async function GET() {
       .replace(/(\w+):/g, '"$1":')
       .replace(/'([^']*)'/g, '"$1"');
     const obj = JSON.parse(objStr);
-    // 整理成前端需要的格式
-    const stations = Object.values(obj).map((s: any) => ({
+    // 定義型別，避免使用 any
+    type StationRaw = {
+      Date?: string;
+      Time?: string;
+      StationName?: { C?: string };
+      Weather?: { C?: string };
+      Temperature?: { C?: { C?: string } };
+      Humidity?: { C?: string };
+      Rain?: { C?: string };
+      Wind?: { MS?: { C?: string } };
+      Pressure?: { C?: string };
+      Sunshine?: { C?: string };
+    };
+    const stations = (Object.values(obj) as StationRaw[]).map((s) => ({
       date: s.Date ?? '',
       time: s.Time ?? '',
       name: s.StationName?.C ?? '',
