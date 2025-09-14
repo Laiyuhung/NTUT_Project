@@ -19,21 +19,30 @@ export async function GET() {
           .replace(/(\w+):/g, '"$1":')
           .replace(/'([^']*)'/g, '"$1"');
         const obj = JSON.parse(objStr);
-        stations = Object.values(obj).map((s) => {
-          const rec = s as Record<string, unknown>;
-          return {
-            date: typeof rec.Date === 'string' ? rec.Date : '',
-            time: typeof rec.Time === 'string' ? rec.Time : '',
-            name: typeof rec.StationName === 'object' && rec.StationName && 'C' in rec.StationName ? (rec.StationName as { C?: string }).C ?? '' : '',
-            weather: typeof rec.Weather === 'object' && rec.Weather && 'C' in rec.Weather ? (rec.Weather as { C?: string }).C ?? '' : '',
-            temperature: typeof rec.Temperature === 'object' && rec.Temperature && 'C' in rec.Temperature && typeof (rec.Temperature as any).C === 'object' && (rec.Temperature as any).C && 'C' in (rec.Temperature as any).C ? (rec.Temperature as { C?: { C?: string } }).C?.C ?? '' : '',
-            humidity: typeof rec.Humidity === 'object' && rec.Humidity && 'C' in rec.Humidity ? (rec.Humidity as { C?: string }).C ?? '' : '',
-            rain: typeof rec.Rain === 'object' && rec.Rain && 'C' in rec.Rain ? (rec.Rain as { C?: string }).C ?? '' : '',
-            wind: typeof rec.Wind === 'object' && rec.Wind && 'MS' in rec.Wind && typeof (rec.Wind as any).MS === 'object' && (rec.Wind as any).MS && 'C' in (rec.Wind as any).MS ? (rec.Wind as { MS?: { C?: string } }).MS?.C ?? '' : '',
-            pressure: typeof rec.Pressure === 'object' && rec.Pressure && 'C' in rec.Pressure ? (rec.Pressure as { C?: string }).C ?? '' : '',
-            sunshine: typeof rec.Sunshine === 'object' && rec.Sunshine && 'C' in rec.Sunshine ? (rec.Sunshine as { C?: string }).C ?? '' : ''
-          };
-        });
+        type StationRaw = {
+          Date?: string;
+          Time?: string;
+          StationName?: { C?: string };
+          Weather?: { C?: string };
+          Temperature?: { C?: { C?: string } };
+          Humidity?: { C?: string };
+          Rain?: { C?: string };
+          Wind?: { MS?: { C?: string } };
+          Pressure?: { C?: string };
+          Sunshine?: { C?: string };
+        };
+  stations = (Object.values(obj) as StationRaw[]).map((s) => ({
+          date: s.Date ?? '',
+          time: s.Time ?? '',
+          name: s.StationName?.C ?? '',
+          weather: s.Weather?.C ?? '',
+          temperature: s.Temperature?.C?.C ?? '',
+          humidity: s.Humidity?.C ?? '',
+          rain: s.Rain?.C ?? '',
+          wind: s.Wind?.MS?.C ?? '',
+          pressure: s.Pressure?.C ?? '',
+          sunshine: s.Sunshine?.C ?? ''
+        }));
       }
     } catch {
       // 解析失敗 stations 保持空陣列
