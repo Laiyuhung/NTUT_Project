@@ -64,7 +64,7 @@ export async function GET() {
     // 先取得所有站名
     const stationList = (Object.values(obj) as StationRaw[]).map((s) => s.StationName?.C ?? "");
     // 查詢 supabase 取得所有經緯度
-    let latlngMap: Record<string, { latitude: number|null, longitude: number|null }> = {};
+  const latlngMap: Record<string, { latitude: number|null, longitude: number|null }> = {};
     if (stationList.length > 0) {
       const { data, error } = await supabase
         .from('station_code_map')
