@@ -15,11 +15,22 @@ export async function GET() {
       const match = jsText.match(/'63'\s*:\s*({[\s\S]*?})\s*[,}]/);
       if (match) {
         // 讓 key 變成雙引號，方便 JSON.parse
-        let objStr = match[1]
+        const objStr = match[1]
           .replace(/(\w+):/g, '"$1":')
           .replace(/'([^']*)'/g, '"$1"');
         const obj = JSON.parse(objStr);
-        stations = Object.values(obj);
+        stations = Object.values(obj).map((s: any) => ({
+          date: s.Date ?? '',
+          time: s.Time ?? '',
+          name: s.StationName?.C ?? '',
+          weather: s.Weather?.C ?? '',
+          temperature: s.Temperature?.C?.C ?? '',
+          humidity: s.Humidity?.C ?? '',
+          rain: s.Rain?.C ?? '',
+          wind: s.Wind?.MS?.C ?? '',
+          pressure: s.Pressure?.C ?? '',
+          sunshine: s.Sunshine?.C ?? ''
+        }));
       }
     } catch {
       // 解析失敗 stations 保持空陣列

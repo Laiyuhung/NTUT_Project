@@ -38,23 +38,33 @@ export default function CwaPage() {
           <table style={{ borderCollapse: 'collapse', minWidth: 900 }}>
             <thead>
               <tr>
-                {data.stations && Object.keys(data.stations[0] ?? {}).map((key) => (
-                  <th key={key} style={{ border: '1px solid #ccc', padding: 4, background: '#f0f0f0' }}>{key}</th>
-                ))}
+                <th>日期</th>
+                <th>時間</th>
+                <th>站名</th>
+                <th>天氣</th>
+                <th>溫度(°C)</th>
+                <th>濕度(%)</th>
+                <th>雨量(mm)</th>
+                <th>風速(m/s)</th>
+                <th>氣壓(hPa)</th>
+                <th>日照(h)</th>
               </tr>
             </thead>
             <tbody>
-              {data.stations && data.stations.map((row, i) => {
-                const r = row as Record<string, unknown>;
+              {data.stations.map((s, i) => {
+                const r = s as Record<string, string>;
                 return (
                   <tr key={i}>
-                    {Object.keys(data.stations?.[0] ?? {}).map((key) => (
-                      <td key={key} style={{ border: '1px solid #ccc', padding: 4, fontSize: 13 }}>
-                        {typeof r[key] === 'object' && r[key] !== null
-                          ? JSON.stringify(r[key])
-                          : String(r[key] ?? '')}
-                      </td>
-                    ))}
+                    <td>{r.date}</td>
+                    <td>{r.time}</td>
+                    <td>{r.name}</td>
+                    <td>{r.weather}</td>
+                    <td>{r.temperature}</td>
+                    <td>{r.humidity}</td>
+                    <td>{r.rain}</td>
+                    <td>{r.wind}</td>
+                    <td>{r.pressure}</td>
+                    <td>{r.sunshine}</td>
                   </tr>
                 );
               })}
