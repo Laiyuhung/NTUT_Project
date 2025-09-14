@@ -13,6 +13,13 @@ function fixCwaJson(str: string): string {
   // 3. 移除多餘逗號（物件或陣列結尾）
   fixed = fixed.replace(/,\s*([}\]])/g, "$1");
 
+  // 4. 特殊容錯修正
+  // 修正 Da"an → Da'an
+  fixed = fixed.replace(/Da"an/g, "Da'an");
+
+  // 修正尾端多出來的 '}}
+  fixed = fixed.replace(/'}}/g, '"}}');
+
   return fixed;
 }
 
