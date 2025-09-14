@@ -9,7 +9,7 @@ export async function GET() {
     const jsText = await jsRes.text();
 
     // 解析 ST 資料
-    let stations: any[] = [];
+    let stations: unknown[] = [];
     try {
       // 用 Function 解析 ST 物件，避免 globalThis 污染
       const getST = new Function('js', `let ST = undefined; ${jsText}; return ST;`);
@@ -17,7 +17,7 @@ export async function GET() {
       if (ST && ST['63']) {
         stations = Object.values(ST['63']);
       }
-    } catch (e) {
+    } catch {
       // 解析失敗 stations 保持空陣列
     }
     return NextResponse.json({

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 type CwaWeatherResponse = {
   jsText: string;
-  stations?: any[];
+  stations?: unknown[];
   success: boolean;
   error?: string;
 };
@@ -44,17 +44,20 @@ export default function CwaPage() {
               </tr>
             </thead>
             <tbody>
-              {data.stations && data.stations.map((row, i) => (
-                <tr key={i}>
-                  {Object.keys(data.stations?.[0] ?? {}).map((key) => (
-                    <td key={key} style={{ border: '1px solid #ccc', padding: 4, fontSize: 13 }}>
-                      {typeof row[key] === 'object' && row[key] !== null
-                        ? JSON.stringify(row[key])
-                        : String(row[key] ?? '')}
-                    </td>
-                  ))}
-                </tr>
-              ))}
+              {data.stations && data.stations.map((row, i) => {
+                const r = row as Record<string, unknown>;
+                return (
+                  <tr key={i}>
+                    {Object.keys(data.stations?.[0] ?? {}).map((key) => (
+                      <td key={key} style={{ border: '1px solid #ccc', padding: 4, fontSize: 13 }}>
+                        {typeof r[key] === 'object' && r[key] !== null
+                          ? JSON.stringify(r[key])
+                          : String(r[key] ?? '')}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
