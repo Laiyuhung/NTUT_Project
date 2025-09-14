@@ -16,8 +16,8 @@ type Station = {
 
 type CwaWeatherResponse = {
   stations: Station[];
-  raw: string;
   success: boolean;
+  raw?: string;
   error?: string;
 };
 
@@ -46,36 +46,42 @@ export default function CwaPage() {
   return (
     <div style={{ padding: 24 }}>
       <h1>中央氣象署觀測站資料</h1>
-  {Array.isArray(data.stations) && data.stations.length > 0 ? (
-        <div style={{ overflowX: 'auto', marginBottom: 32 }}>
-          <table style={{ borderCollapse: 'collapse', minWidth: 900 }}>
+      {Array.isArray(data.stations) && data.stations.length > 0 ? (
+        <div style={{ overflowX: "auto", marginBottom: 32 }}>
+          <table
+            style={{
+              borderCollapse: "collapse",
+              minWidth: 900,
+              border: "1px solid #ccc",
+            }}
+          >
             <thead>
-              <tr>
-                <th>日期</th>
-                <th>時間</th>
-                <th>站名</th>
-                <th>天氣</th>
-                <th>溫度(°C)</th>
-                <th>濕度(%)</th>
-                <th>雨量(mm)</th>
-                <th>風速(m/s)</th>
-                <th>氣壓(hPa)</th>
-                <th>日照(h)</th>
+              <tr style={{ background: "#f0f0f0" }}>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>日期</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>時間</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>站名</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>天氣</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>溫度(°C)</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>濕度(%)</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>雨量(mm)</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>風速(m/s)</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>氣壓(hPa)</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>日照(h)</th>
               </tr>
             </thead>
             <tbody>
-              {data.stations.map((s, i) => (
-                <tr key={i}>
-                  <td>{s.date}</td>
-                  <td>{s.time}</td>
-                  <td>{s.name}</td>
-                  <td>{s.weather}</td>
-                  <td>{s.temperature}</td>
-                  <td>{s.humidity}</td>
-                  <td>{s.rain}</td>
-                  <td>{s.wind}</td>
-                  <td>{s.pressure}</td>
-                  <td>{s.sunshine}</td>
+              {data.stations.map((s) => (
+                <tr key={`${s.name}-${s.time}`}>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.date}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.time}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.name}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.weather}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.temperature}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.humidity}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.rain}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.wind}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.pressure}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.sunshine}</td>
                 </tr>
               ))}
             </tbody>
@@ -84,10 +90,23 @@ export default function CwaPage() {
       ) : (
         <div>無觀測站資料</div>
       )}
-      <h2 style={{ marginTop: 32 }}>中央氣象署 JS 原始內容</h2>
-      <pre style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, overflowX: 'auto', maxHeight: 600 }}>
-        {data.raw}
-      </pre>
+
+      {data.raw && (
+        <>
+          <h2 style={{ marginTop: 32 }}>中央氣象署 JS 原始內容</h2>
+          <pre
+            style={{
+              background: "#f5f5f5",
+              padding: 12,
+              borderRadius: 6,
+              overflowX: "auto",
+              maxHeight: 600,
+            }}
+          >
+            {data.raw}
+          </pre>
+        </>
+      )}
     </div>
   );
 }

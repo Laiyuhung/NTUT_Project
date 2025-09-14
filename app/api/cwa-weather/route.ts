@@ -2,29 +2,25 @@ import { NextResponse } from 'next/server';
 
 // 工具：修正中央氣象署 JS 物件字串為合法 JSON
 function fixCwaJson(str: string): string {
-  // 1. key 變雙引號（只處理物件內的 key，不碰字串值）
+  // 1. key 變雙引號（僅處理物件 key）
   let fixed = str.replace(/([{,]\s*)([A-Za-z0-9_]+)\s*:/g, '$1"$2":');
 
-  // 2. 單引號值變雙引號
+  // 2. 單引號變雙引號
   fixed = fixed.replace(/'([^']*)'/g, '"$1"');
 
-  // 3. 移除多餘逗號（物件結尾）
-  fixed = fixed.replace(/,\s*}/g, '}');
-
-  // 4. 移除多餘逗號（陣列結尾）
-  fixed = fixed.replace(/,\s*]/g, ']');
+  // 3. 移除多餘逗號（物件/陣列結尾）
+  fixed = fixed.replace(/,\s*([}\]])/g, '$1');
 
   return fixed;
 }
 
-// 取得中央氣象署 JS，解析並整理回傳格式
 export async function GET() {
   try {
     const jsRes = await fetch('https://www.cwa.gov.tw/Data/js/Observe/County/63.js');
     const jsText = await jsRes.text();
 
-    // 用正則抽出 ST['63'] 物件字串
-    const match = jsText.match(/'63'\s*:\s*({[\s\S]*?})\s*[,}]/);
+    // 抓 ST['63'] 物件內容
+    const match = jsText.match(/'63'\s*:\s*({[\s\S]*})\s*}\s*;\s*var/);
     if (!match) {
       return NextResponse.json(
         { success: false, error: "找不到 ST['63'] 物件" },
@@ -32,7 +28,6 @@ export async function GET() {
       );
     }
 
-    // 修正格式
     const objStr = fixCwaJson(match[1]);
 
     let obj;
@@ -49,8 +44,8 @@ export async function GET() {
     type StationRaw = {
       Date?: string;
       Time?: string;
-      StationName?: { C?: string };
-      Weather?: { C?: string };
+      StationName?: { C?: string; E?: string };
+      Weather?: { C?: string; E?: string };
       Temperature?: { C?: { C?: string } };
       Humidity?: { C?: string };
       Rain?: { C?: string };
@@ -59,7 +54,7 @@ export async function GET() {
       Sunshine?: { C?: string };
     };
 
-    // 整理輸出格式
+    // 整理成乾淨格式
     const stations = (Object.values(obj) as StationRaw[]).map((s) => ({
       date: s.Date ?? '',
       time: s.Time ?? '',
@@ -75,8 +70,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      stations,
-      raw: jsText // 備查原始內容
+      stations
     });
   } catch (e) {
     return NextResponse.json(
