@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 
 type CwaWeatherResponse = {
-  countyData: any;
+  countyData: Record<string, unknown>;
   tableHtml: string | null;
   success: boolean;
   error?: string;

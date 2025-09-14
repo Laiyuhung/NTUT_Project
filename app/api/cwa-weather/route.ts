@@ -20,7 +20,7 @@ export async function GET() {
 
     // 4. 解析 HTML 內容（簡單抓 table 內容）
     const tableMatch = htmlText.match(/<table[\s\S]*?<\/table>/);
-    let tableHtml = tableMatch ? tableMatch[0] : null;
+  const tableHtml = tableMatch ? tableMatch[0] : null;
 
     return NextResponse.json({
       countyData,
