@@ -15,7 +15,7 @@ export async function GET() {
     }
 
     // 3. 取得 HTML 頁面
-    const htmlRes = await fetch('https://www.cwa.gov.tw/V8/C/W/OBS_County.html?ID=menu');
+    const htmlRes = await fetch('https://www.cwa.gov.tw/V8/C/W/OBS_County.html?ID=63');
     const htmlText = await htmlRes.text();
 
     // 4. 解析 HTML 內容（簡單抓 table 內容）
