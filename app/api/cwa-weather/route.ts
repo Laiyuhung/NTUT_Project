@@ -1,4 +1,18 @@
+
 import { NextResponse } from 'next/server';
+
+// 工具：修正中央氣象署 JS 物件字串為合法 JSON
+function fixCwaJson(str: string): string {
+  // 1. 讓 key 變成雙引號
+  let fixed = str.replace(/(\w+):/g, '"$1":');
+  // 2. 單引號值變雙引號
+  fixed = fixed.replace(/'([^']*)'/g, '"$1"');
+  // 3. 移除多餘逗號（物件結尾）
+  fixed = fixed.replace(/,\s*}/g, '}');
+  // 4. 移除多餘逗號（陣列結尾）
+  fixed = fixed.replace(/,\s*]/g, ']');
+  return fixed;
+}
 
 // 取得中央氣象署 JS，解析並整理回傳格式
 export async function GET() {
@@ -10,11 +24,14 @@ export async function GET() {
     if (!match) {
       return NextResponse.json({ success: false, error: "找不到 ST['63'] 物件" }, { status: 500 });
     }
-    // 讓 key 變成雙引號，方便 JSON.parse
-    const objStr = match[1]
-      .replace(/(\w+):/g, '"$1":')
-      .replace(/'([^']*)'/g, '"$1"');
-    const obj = JSON.parse(objStr);
+    // 讓 key 變成雙引號，並修正多餘逗號等問題
+    const objStr = fixCwaJson(match[1]);
+    let obj;
+    try {
+      obj = JSON.parse(objStr);
+    } catch (e) {
+      return NextResponse.json({ success: false, error: 'JSON 解析失敗: ' + String(e), raw: objStr }, { status: 500 });
+    }
     // 定義型別，避免使用 any
     type StationRaw = {
       Date?: string;
