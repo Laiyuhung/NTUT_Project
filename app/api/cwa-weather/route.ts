@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { supabase } from "@/lib/supabaseClient";
 
 // 工具：修正中央氣象署 JS 物件字串為合法 JSON
 function fixCwaJson(str: string): string {
@@ -60,19 +61,43 @@ export async function GET() {
       Sunshine?: { C?: string };
     };
 
-    const stations = (Object.values(obj) as StationRaw[]).map((s) => ({
-      date: s.Date ?? "",
-      time: s.Time ?? "",
-      name: s.StationName?.C ?? "",
-      weather: s.Weather?.C ?? "",
-      temperature: s.Temperature?.C?.C ?? "",
-      humidity: s.Humidity?.C ?? "",
-      rain: s.Rain?.C ?? "",
-      // wind_ms: 新增欄位（取 MS）
-      wind_ms: s.Wind?.MS?.C ?? "",
-      pressure: s.Pressure?.C ?? "",
-      sunshine: s.Sunshine?.C ?? "",
-    }));
+    // 先取得所有站名
+    const stationList = (Object.values(obj) as StationRaw[]).map((s) => s.StationName?.C ?? "");
+    // 查詢 supabase 取得所有經緯度
+    let latlngMap: Record<string, { latitude: number|null, longitude: number|null }> = {};
+    if (stationList.length > 0) {
+      const { data, error } = await supabase
+        .from('station_code_map')
+        .select('station_name, latitude, longitude')
+        .in('station_name', stationList);
+      if (!error && data) {
+        data.forEach(row => {
+          latlngMap[row.station_name] = {
+            latitude: row.latitude,
+            longitude: row.longitude,
+          };
+        });
+      }
+    }
+
+    const stations = (Object.values(obj) as StationRaw[]).map((s) => {
+      const name = s.StationName?.C ?? "";
+      const latlng = latlngMap[name] || { latitude: null, longitude: null };
+      return {
+        date: s.Date ?? "",
+        time: s.Time ?? "",
+        name,
+        weather: s.Weather?.C ?? "",
+        temperature: s.Temperature?.C?.C ?? "",
+        humidity: s.Humidity?.C ?? "",
+        rain: s.Rain?.C ?? "",
+        wind_ms: s.Wind?.MS?.C ?? "",
+        pressure: s.Pressure?.C ?? "",
+        sunshine: s.Sunshine?.C ?? "",
+        latitude: latlng.latitude,
+        longitude: latlng.longitude,
+      };
+    });
 
     return NextResponse.json({
       success: true,

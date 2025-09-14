@@ -9,9 +9,11 @@ type Station = {
   temperature: string;
   humidity: string;
   rain: string;
-  wind_ms: string; // 👈 新增
+  wind_ms: string;
   pressure: string;
   sunshine: string;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 type CwaWeatherResponse = {
@@ -67,6 +69,8 @@ export default function CwaPage() {
                 <th style={{ border: "1px solid #ccc", padding: 8 }}>風速(m/s)</th>
                 <th style={{ border: "1px solid #ccc", padding: 8 }}>氣壓(hPa)</th>
                 <th style={{ border: "1px solid #ccc", padding: 8 }}>日照(h)</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>緯度</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>經度</th>
               </tr>
             </thead>
             <tbody>
@@ -82,6 +86,12 @@ export default function CwaPage() {
                   <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.wind_ms}</td>
                   <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.pressure}</td>
                   <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.sunshine}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>
+                    {s.latitude !== undefined && s.latitude !== null ? s.latitude : ""}
+                  </td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>
+                    {s.longitude !== undefined && s.longitude !== null ? s.longitude : ""}
+                  </td>
                 </tr>
               ))}
             </tbody>
