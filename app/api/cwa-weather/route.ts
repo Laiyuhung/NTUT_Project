@@ -8,9 +8,21 @@ export async function GET() {
     const jsRes = await fetch('https://www.cwa.gov.tw/Data/js/Observe/County/63.js');
     const jsText = await jsRes.text();
 
-    // 直接回傳原始 JS 內容
+    // 解析 ST 資料
+    let stations: any[] = [];
+    try {
+      // 用 Function 解析 ST 物件，避免 globalThis 污染
+      const getST = new Function('js', `let ST = undefined; ${jsText}; return ST;`);
+      const ST = getST(jsText);
+      if (ST && ST['63']) {
+        stations = Object.values(ST['63']);
+      }
+    } catch (e) {
+      // 解析失敗 stations 保持空陣列
+    }
     return NextResponse.json({
       jsText,
+      stations,
       success: true,
     });
   } catch (e) {
