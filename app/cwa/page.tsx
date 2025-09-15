@@ -81,8 +81,7 @@ export default function CwaPage() {
       .then((json) => {
         if (json.success && Array.isArray(json.data)) {
           setStationOptions(json.data);
-          // 預設選第一個
-          if (json.data.length > 0) setSelectedStation(json.data[0].station_name);
+          // 不自動選第一個，預設為空
         } else {
           setStationError("無法取得站名清單");
         }
@@ -96,7 +95,11 @@ export default function CwaPage() {
 
   // 監聽站名選擇，重新抓取爬蟲資料
   useEffect(() => {
-    if (!selectedStation) return;
+    if (!selectedStation) {
+      setCrawler(null);
+      setCrawlerLoading(false);
+      return;
+    }
     setCrawlerLoading(true);
     setCrawlerError(null);
     fetch(`/api/cwa-crawler?station_name=${encodeURIComponent(selectedStation)}`)
@@ -136,7 +139,7 @@ export default function CwaPage() {
                 </option>
                 {stationOptions.map(opt => (
                   <option key={opt.station_name} value={opt.station_name}>
-                  {opt.station_name}
+                    {opt.station_name}
                   </option>
                 ))}
               </select>
@@ -144,7 +147,9 @@ export default function CwaPage() {
           </div>
         )}
         {/* 資料表格 */}
-        {crawlerLoading ? (
+        {!selectedStation ? (
+          <div>請先選擇測站</div>
+        ) : crawlerLoading ? (
           <div>單一測站數據 載入中...</div>
         ) : crawlerError ? (
           <div>單一測站數據 錯誤: {crawlerError}</div>
