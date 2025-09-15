@@ -9,23 +9,60 @@ function getCwaUrl() {
   return `${base}?T=${t}`;
 }
 
+// 強化 header 並加入重試與隨機延遲
+function getRandomUserAgent() {
+  const agents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0',
+    'Mozilla/5.0 (Linux; Android 13; SM-S9180) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36',
+  ];
+  return agents[Math.floor(Math.random() * agents.length)];
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithRetry(url: string, options: RequestInit, retries = 3): Promise<Response> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      // 隨機延遲 300~1200ms
+      await sleep(300 + Math.random() * 900);
+      const res = await fetch(url, options);
+      if (res.status === 200) return res;
+      // 若被擋，嘗試下一次
+    } catch (e) {
+      // 忽略錯誤，重試
+    }
+  }
+  throw new Error('Request blocked or failed after retries');
+}
+
 export async function GET() {
   try {
-    const res = await fetch(getCwaUrl(), {
+    const userAgent = getRandomUserAgent();
+    const res = await fetchWithRetry(getCwaUrl(), {
       headers: {
-        'User-Agent': 'Mozilla/5.0',
+        'User-Agent': userAgent,
         'Referer': 'https://www.cwa.gov.tw/V8/C/W/Observe/MOD/24hr/46692.html',
         'Origin': 'https://www.cwa.gov.tw',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'zh-TW,zh;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        // 可視情況加上 Cookie
+        //'Cookie': 'your_cookie_here',
       },
       cache: 'no-store',
-      credentials: 'include',
+      credentials: 'omit', // server 端 fetch 不支援 include
     });
     const html = await res.text();
     const $ = cheerio.load(html);
     const rows = $('tr[data-cstname]');
-  const data = rows.map((_: number, row: Element) => {
+    const data = rows.map((_: number, row: Element) => {
       const $row = $(row);
       const time = $row.find('th[scope="row"]').text().replace(/\s+/g, ' ').trim();
       const temp = $row.find('td[headers="temp"] .tem-C').text().trim();
@@ -50,7 +87,7 @@ export async function GET() {
         sunlight,
       };
     }).get();
-  return NextResponse.json({ success: true, data, raw: html });
+    return NextResponse.json({ success: true, data, raw: html });
   } catch (error) {
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
   }
