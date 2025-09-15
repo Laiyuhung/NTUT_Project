@@ -28,10 +28,10 @@ export async function GET() {
     );
     const jsText = await jsRes.text();
 
-    const match = jsText.match(/'63'\s*:\s*({[\s\S]*})\s*}\s*;\s*var/);
+    const match = jsText.match(/'65'\s*:\s*({[\s\S]*})\s*}\s*;\s*var/);
     if (!match) {
       return NextResponse.json(
-        { success: false, error: "找不到 ST['63'] 物件" },
+        { success: false, error: "找不到 ST['65'] 物件" },
         { status: 500 }
       );
     }
