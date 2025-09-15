@@ -252,9 +252,70 @@ export default function CwaPage() {
   if (error) return <div>錯誤: {error}</div>;
   if (!data?.success) return <div>API 回傳失敗</div>;
 
+
+  // 雲型辨識 hooks
+  const [modelFile, setModelFile] = useState<File | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [cloudResult, setCloudResult] = useState<string | null>(null);
+  const [cloudLoading, setCloudLoading] = useState(false);
+  const [cloudError, setCloudError] = useState<string | null>(null);
+
+  // 上傳表單送出
+  const handleCloudSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCloudResult(null);
+    setCloudError(null);
+    if (!modelFile || photoFiles.length === 0) {
+      setCloudError('請選擇模型檔與至少一張照片');
+      return;
+    }
+    setCloudLoading(true);
+    const formData = new FormData();
+    formData.append('model', modelFile);
+    photoFiles.forEach(f => formData.append('photos', f));
+    try {
+      const res = await fetch('/api/upload-cloud-identification', {
+        method: 'POST',
+        body: formData,
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || '辨識失敗');
+      setCloudResult(json.result || '無辨識結果');
+    } catch (err: any) {
+      setCloudError(err.message || '辨識失敗');
+    } finally {
+      setCloudLoading(false);
+    }
+  };
+
   return (
     <div style={{ padding: 24 }}>
       {renderCrawler()}
+
+      <hr style={{ margin: '32px 0' }} />
+      <h2>雲型辨識（上傳模型與照片）</h2>
+      <form onSubmit={handleCloudSubmit} style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 12 }}>
+          <label>選擇模型檔 (.pt)：
+            <input type="file" accept=".pt" onChange={e => setModelFile(e.target.files?.[0] || null)} />
+          </label>
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <label>選擇照片（可多選）：
+            <input type="file" accept="image/*" multiple onChange={e => setPhotoFiles(e.target.files ? Array.from(e.target.files) : [])} />
+          </label>
+        </div>
+        <button type="submit" disabled={cloudLoading} style={{ padding: '6px 18px' }}>
+          {cloudLoading ? '辨識中...' : '開始辨識'}
+        </button>
+      </form>
+      {cloudError && <div style={{ color: 'red', marginBottom: 12 }}>錯誤：{cloudError}</div>}
+      {cloudResult && (
+        <div>
+          <h4>辨識結果（CSV 內容）</h4>
+          <pre style={{ background: '#f8f8f8', padding: 12, borderRadius: 4, maxWidth: 900, overflowX: 'auto' }}>{cloudResult}</pre>
+        </div>
+      )}
     </div>
   );
 }
