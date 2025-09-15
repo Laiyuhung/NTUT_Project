@@ -84,7 +84,8 @@ export async function GET(req: Request) {
     const html = await res.text();
     // 解析 HTML 並結構化資料
     const $ = cheerio.load(`<table>${html}</table>`);
-    const data: Array<{
+    // 先解析所有資料
+    const allRows: Array<{
       date: string;
       time: string;
       temp: string;
@@ -132,7 +133,7 @@ export async function GET(req: Request) {
       const rain = $row.find('td[headers="rain"]').text().trim();
       const sunlight = $row.find('td[headers="sunlight"]').text().trim();
       if (date || time) {
-        data.push({
+        allRows.push({
           date,
           time,
           temp,
@@ -148,7 +149,88 @@ export async function GET(req: Request) {
         });
       }
     });
-    return NextResponse.json({ success: true, data, raw: html });
+
+    // 只處理有資料的情況
+    if (allRows.length === 0) {
+      return NextResponse.json({ success: false, error: '無資料', raw: html });
+    }
+
+    // 取最新一筆（最上面）
+    const latest = allRows[0];
+
+    // 取近一小時的資料列數
+    // 判斷頻率：如果第1筆和第2筆時間差>=60分鐘，則為整點站，否則為十分鐘站
+    function parseTime(row: {date: string, time: string}) {
+      // date: MM/DD, time: HH:mm
+      const nowYear = new Date().getFullYear();
+      const [month, day] = row.date.split('/').map(Number);
+      const [hour, minute] = row.time.split(':').map(Number);
+      return new Date(nowYear, month-1, day, hour, minute);
+    }
+    let isHourly = false;
+    if (allRows.length > 1) {
+      const t0 = parseTime(allRows[0]);
+      const t1 = parseTime(allRows[1]);
+      isHourly = Math.abs((t0.getTime() - t1.getTime())/60000) >= 60;
+    }
+
+    // 處理累計項
+    let rain = latest.rain;
+    let sunlight = latest.sunlight;
+    if (isHourly) {
+      // 整點站
+      // 跨日判斷：第1筆和第2筆日期不同，或第1筆時間為01:00且第2筆為00:00
+      let crossDay = false;
+      if (allRows.length > 1) {
+        crossDay = allRows[0].date !== allRows[1].date ||
+          (allRows[0].time === '01:00' && allRows[1].time === '00:00');
+      }
+      if (!crossDay && allRows.length > 1) {
+        // 累計項 = 第2列 - 第1列
+        rain = (parseFloat(allRows[1].rain) - parseFloat(allRows[0].rain)).toFixed(1);
+        sunlight = (parseFloat(allRows[1].sunlight) - parseFloat(allRows[0].sunlight)).toFixed(1);
+      }
+      // 若跨日，rain/sunlight 保持為最新一筆
+    } else {
+      // 十分鐘站
+      // 跨日判斷：第1筆和第7筆日期不同，或第1筆時間為00:10且第7筆為00:00
+      let crossDay = false;
+      if (allRows.length > 6) {
+        crossDay = allRows[0].date !== allRows[6].date ||
+          (allRows[0].time === '00:10' && allRows[6].time === '00:00');
+      }
+      if (!crossDay && allRows.length > 6) {
+        // 累計項 = 第7列 - 第1列
+        rain = (parseFloat(allRows[6].rain) - parseFloat(allRows[0].rain)).toFixed(1);
+        sunlight = (parseFloat(allRows[6].sunlight) - parseFloat(allRows[0].sunlight)).toFixed(1);
+      } else if (crossDay && allRows.length > 6) {
+        // 累計項 = 第1列 + (第7列00:00 - 第1列00:00)
+        // 找到00:00那筆
+        const zeroRow = allRows.find(r => r.time === '00:00');
+        if (zeroRow) {
+          rain = (parseFloat(allRows[0].rain) + (parseFloat(zeroRow.rain) - parseFloat(allRows[6].rain))).toFixed(1);
+          sunlight = (parseFloat(allRows[0].sunlight) + (parseFloat(zeroRow.sunlight) - parseFloat(allRows[6].sunlight))).toFixed(1);
+        }
+      }
+      // 若資料不足7筆，rain/sunlight 保持為最新一筆
+    }
+
+    // 組合回傳
+    const result = {
+      date: latest.date,
+      time: latest.time,
+      temp: latest.temp,
+      weather: latest.weather,
+      wind: latest.wind,
+      windSpeed: latest.windSpeed,
+      windSpeedAlt: latest.windSpeedAlt,
+      visibility: latest.visibility,
+      humidity: latest.humidity,
+      pressure: latest.pressure,
+      rain,
+      sunlight,
+    };
+    return NextResponse.json({ success: true, data: [result], raw: html });
   } catch (error) {
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
   }
