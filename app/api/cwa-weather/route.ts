@@ -23,29 +23,31 @@ function fixCwaJson(str: string): string {
 
 export async function GET() {
   try {
-    const jsRes = await fetch(
-      "https://www.cwa.gov.tw/Data/js/Observe/County/65.js"
-    );
-    const jsText = await jsRes.text();
+    // 1. 下載 63.js 與 65.js
+    const [jsRes63, jsRes65] = await Promise.all([
+      fetch("https://www.cwa.gov.tw/Data/js/Observe/County/63.js"),
+      fetch("https://www.cwa.gov.tw/Data/js/Observe/County/65.js"),
+    ]);
+    const [jsText63, jsText65] = await Promise.all([
+      jsRes63.text(),
+      jsRes65.text(),
+    ]);
 
-    const match = jsText.match(/'65'\s*:\s*({[\s\S]*})\s*}\s*;\s*var/);
-    if (!match) {
-      return NextResponse.json(
-        { success: false, error: "找不到 ST['65'] 物件" },
-        { status: 500 }
-      );
+    // 2. 解析 JS 物件
+    function parseCwaObj(jsText: string, code: string) {
+      const match = jsText.match(new RegExp(`'${code}'\\s*:\\s*({[\\s\\S]*})\\s*}\\s*;\\s*var`));
+      if (!match) return null;
+      const objStr = fixCwaJson(match[1]);
+      try {
+        return JSON.parse(objStr);
+      } catch {
+        return null;
+      }
     }
-
-    const objStr = fixCwaJson(match[1]);
-
-    let obj;
-    try {
-      obj = JSON.parse(objStr);
-    } catch (e) {
-      return NextResponse.json(
-        { success: false, error: "JSON 解析失敗: " + String(e), raw: objStr },
-        { status: 500 }
-      );
+    const obj63 = parseCwaObj(jsText63, '63');
+    const obj65 = parseCwaObj(jsText65, '65');
+    if (!obj63 && !obj65) {
+      return NextResponse.json({ success: false, error: "找不到 ST['63'] 與 ST['65'] 物件" }, { status: 500 });
     }
 
     type StationRaw = {
@@ -61,10 +63,13 @@ export async function GET() {
       Sunshine?: { C?: string };
     };
 
-    // 先取得所有站名
-    const stationList = (Object.values(obj) as StationRaw[]).map((s) => s.StationName?.C ?? "");
-    // 查詢 supabase 取得所有經緯度
-  const latlngMap: Record<string, { latitude: number|null, longitude: number|null }> = {};
+    // 3. 合併所有站名
+    const allObjs = [obj63, obj65].filter(Boolean);
+    const allStationsRaw = allObjs.flatMap(obj => Object.values(obj) as StationRaw[]);
+    const stationList = allStationsRaw.map((s) => s.StationName?.C ?? "");
+
+    // 4. 查詢 supabase 取得所有經緯度
+    const latlngMap: Record<string, { latitude: number|null, longitude: number|null }> = {};
     if (stationList.length > 0) {
       const { data, error } = await supabase
         .from('station_code_for_web')
@@ -80,7 +85,8 @@ export async function GET() {
       }
     }
 
-    const stations = (Object.values(obj) as StationRaw[]).map((s) => {
+    // 5. 合併所有站資料
+    const stations = allStationsRaw.map((s) => {
       const name = s.StationName?.C ?? "";
       const latlng = latlngMap[name] || { latitude: null, longitude: null };
       return {
@@ -102,7 +108,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       stations,
-      raw: jsText,
+      raw: { jsText63, jsText65 },
     });
   } catch (e) {
     return NextResponse.json(
