@@ -1,5 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
+type StationOption = {
+  station_name: string;
+  StationID: string;
+};
+  // 站名選單
+  const [stationOptions, setStationOptions] = useState<StationOption[]>([]);
+  const [selectedStation, setSelectedStation] = useState<string>("");
+  const [stationLoading, setStationLoading] = useState(true);
+  const [stationError, setStationError] = useState<string | null>(null);
 type CrawlerRow = {
   time: string;
   temp: string;
@@ -62,8 +71,32 @@ export default function CwaPage() {
         setError(e.toString());
         setLoading(false);
       });
-    // 取得爬蟲 API
-    fetch("/api/cwa-crawler")
+
+    // 取得站名選單
+    fetch("/api/models/list-stations")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          setStationOptions(json.data);
+          // 預設選第一個
+          if (json.data.length > 0) setSelectedStation(json.data[0].station_name);
+        } else {
+          setStationError("無法取得站名清單");
+        }
+        setStationLoading(false);
+      })
+      .catch((e) => {
+        setStationError(e.toString());
+        setStationLoading(false);
+      });
+  }, []);
+
+  // 監聽站名選擇，重新抓取爬蟲資料
+  useEffect(() => {
+    if (!selectedStation) return;
+    setCrawlerLoading(true);
+    setCrawlerError(null);
+    fetch(`/api/cwa-crawler?station_name=${encodeURIComponent(selectedStation)}`)
       .then((res) => res.json())
       .then((json: CrawlerResponse) => {
         setCrawler(json);
@@ -73,49 +106,78 @@ export default function CwaPage() {
         setCrawlerError(e.toString());
         setCrawlerLoading(false);
       });
-  }, []);
+  }, [selectedStation]);
 
 
-  // 先顯示爬蟲區塊
+  // 先顯示爬蟲區塊，含站名選單
   const renderCrawler = () => {
-    if (crawlerLoading) return <div>中央氣象局 24hr 觀測（爬蟲）：載入中...</div>;
-    if (crawlerError) return <div>中央氣象局 24hr 觀測（爬蟲）錯誤: {crawlerError}</div>;
-    if (!crawler?.success || !crawler.data) return <div>中央氣象局 24hr 觀測（爬蟲）API 回傳失敗</div>;
     return (
       <div style={{ overflowX: "auto", marginBottom: 32 }}>
         <h2 style={{ margin: "16px 0 8px 0" }}>中央氣象局 24hr 單一測站數據</h2>
-        <table style={{ borderCollapse: "collapse", minWidth: 900, border: "1px solid #ccc" }}>
-          <thead>
-            <tr style={{ background: "#f0f0f0" }}>
-              <th style={{ border: "1px solid #ccc", padding: 8 }}>時間</th>
-              <th style={{ border: "1px solid #ccc", padding: 8 }}>溫度(°C)</th>
-              <th style={{ border: "1px solid #ccc", padding: 8 }}>天氣</th>
-              <th style={{ border: "1px solid #ccc", padding: 8 }}>風向</th>
-              <th style={{ border: "1px solid #ccc", padding: 8 }}>風速(m/s)</th>
-              <th style={{ border: "1px solid #ccc", padding: 8 }}>能見度(km)</th>
-              <th style={{ border: "1px solid #ccc", padding: 8 }}>濕度(%)</th>
-              <th style={{ border: "1px solid #ccc", padding: 8 }}>氣壓(hPa)</th>
-              <th style={{ border: "1px solid #ccc", padding: 8 }}>雨量(mm)</th>
-              <th style={{ border: "1px solid #ccc", padding: 8 }}>日照(h)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {crawler.data.map((row, idx) => (
-              <tr key={row.time + idx}>
-                <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.time}</td>
-                <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.temp}</td>
-                <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.weather}</td>
-                <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.wind}</td>
-                <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.windSpeed}</td>
-                <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.visibility}</td>
-                <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.humidity}</td>
-                <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.pressure}</td>
-                <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.rain}</td>
-                <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.sunlight}</td>
+        {/* 站名下拉選單 */}
+        {stationLoading ? (
+          <div>載入站名選單中...</div>
+        ) : stationError ? (
+          <div>站名選單錯誤: {stationError}</div>
+        ) : (
+          <div style={{ marginBottom: 12 }}>
+            <label>
+              選擇測站：
+              <select
+                value={selectedStation}
+                onChange={e => setSelectedStation(e.target.value)}
+                style={{ marginLeft: 8, padding: 4 }}
+              >
+                {stationOptions.map(opt => (
+                  <option key={opt.station_name} value={opt.station_name}>
+                    {opt.station_name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+        {/* 資料表格 */}
+        {crawlerLoading ? (
+          <div>中央氣象局 24hr 觀測（爬蟲）：載入中...</div>
+        ) : crawlerError ? (
+          <div>中央氣象局 24hr 觀測（爬蟲）錯誤: {crawlerError}</div>
+        ) : !crawler?.success || !crawler.data ? (
+          <div>中央氣象局 24hr 觀測（爬蟲）API 回傳失敗</div>
+        ) : (
+          <table style={{ borderCollapse: "collapse", minWidth: 900, border: "1px solid #ccc" }}>
+            <thead>
+              <tr style={{ background: "#f0f0f0" }}>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>時間</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>溫度(°C)</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>天氣</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>風向</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>風速(m/s)</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>能見度(km)</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>濕度(%)</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>氣壓(hPa)</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>雨量(mm)</th>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>日照(h)</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {crawler.data.map((row, idx) => (
+                <tr key={row.time + idx}>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.time}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.temp}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.weather}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.wind}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.windSpeed}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.visibility}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.humidity}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.pressure}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.rain}</td>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.sunlight}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     );
   };
