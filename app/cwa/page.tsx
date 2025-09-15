@@ -65,7 +65,12 @@ export default function CwaPage() {
   const [crawler, setCrawler] = useState<CrawlerResponse | null>(null);
   const [crawlerLoading, setCrawlerLoading] = useState(true);
   const [crawlerError, setCrawlerError] = useState<string | null>(null);
-  // 雲型辨識 hooks（已於組件頂部宣告，這裡移除重複宣告）
+  // 雲型辨識 hooks
+  const [modelFile, setModelFile] = useState<File | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [cloudResult, setCloudResult] = useState<string | null>(null);
+  const [cloudLoading, setCloudLoading] = useState(false);
+  const [cloudError, setCloudError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/cwa-weather")
@@ -247,6 +252,7 @@ export default function CwaPage() {
   };
 
 
+
   // render early return
   if (loading) {
     return <div>載入中...</div>;
@@ -257,14 +263,6 @@ export default function CwaPage() {
   if (!data?.success) {
     return <div>API 回傳失敗</div>;
   }
-
-
-  // 雲型辨識 hooks
-  const [modelFile, setModelFile] = useState<File | null>(null);
-  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
-  const [cloudResult, setCloudResult] = useState<string | null>(null);
-  const [cloudLoading, setCloudLoading] = useState(false);
-  const [cloudError, setCloudError] = useState<string | null>(null);
 
   // 上傳表單送出
   const handleCloudSubmit = async (e: React.FormEvent) => {
