@@ -5,7 +5,7 @@ export async function GET() {
   try {
     const { data, error } = await supabase
       .from('station_code_map')
-      .select('station_name, StationID')
+  .select('station_name, StationID, latitude, longitude')
       .not('StationID', 'is', null)
       .neq('StationID', '')
       .order('station_name', { ascending: true });

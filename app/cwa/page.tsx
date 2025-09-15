@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 type StationOption = {
   station_name: string;
   StationID: string;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 type CrawlerRow = {
   date: string;
@@ -53,6 +55,10 @@ export default function CwaPage() {
   const [selectedStation, setSelectedStation] = useState<string>("");
   const [stationLoading, setStationLoading] = useState(true);
   const [stationError, setStationError] = useState<string | null>(null);
+  // 目前經緯度
+  const [currentLat, setCurrentLat] = useState<number | null>(null);
+  const [currentLng, setCurrentLng] = useState<number | null>(null);
+  const [geoError, setGeoError] = useState<string | null>(null);
 
   const [data, setData] = useState<CwaWeatherResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,7 +87,6 @@ export default function CwaPage() {
       .then((json) => {
         if (json.success && Array.isArray(json.data)) {
           setStationOptions(json.data);
-          // 不自動選第一個，預設為空
         } else {
           setStationError("無法取得站名清單");
         }
@@ -91,7 +96,48 @@ export default function CwaPage() {
         setStationError(e.toString());
         setStationLoading(false);
       });
+
+    // 取得目前經緯度
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setCurrentLat(pos.coords.latitude);
+          setCurrentLng(pos.coords.longitude);
+        },
+        (err) => {
+          setGeoError("無法取得定位: " + err.message);
+        }
+      );
+    } else {
+      setGeoError("瀏覽器不支援定位功能");
+    }
   }, []);
+
+  // 當經緯度與站名選單都取得後，自動選最近測站
+  useEffect(() => {
+    if (
+      currentLat !== null &&
+      currentLng !== null &&
+      stationOptions.length > 0 &&
+      !selectedStation // 只在未手動選擇時自動選
+    ) {
+      // 計算最近測站
+      let minDist = Infinity;
+      let nearestStation = "";
+      for (const s of stationOptions) {
+        if (typeof s.latitude === "number" && typeof s.longitude === "number") {
+          const d = Math.sqrt(
+            Math.pow(currentLat - s.latitude, 2) + Math.pow(currentLng - s.longitude, 2)
+          );
+          if (d < minDist) {
+            minDist = d;
+            nearestStation = s.station_name;
+          }
+        }
+      }
+      if (nearestStation) setSelectedStation(nearestStation);
+    }
+  }, [currentLat, currentLng, stationOptions]);
 
   // 監聽站名選擇，重新抓取爬蟲資料
   useEffect(() => {
@@ -144,6 +190,13 @@ export default function CwaPage() {
                 ))}
               </select>
             </label>
+            <div style={{ marginTop: 8, color: '#555' }}>
+              {geoError
+                ? geoError
+                : currentLat !== null && currentLng !== null
+                ? `目前經緯度：${currentLat.toFixed(6)}, ${currentLng.toFixed(6)}`
+                : '定位中...'}
+            </div>
           </div>
         )}
         {/* 資料表格 */}
