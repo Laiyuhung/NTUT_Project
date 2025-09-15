@@ -24,7 +24,7 @@ function fixCwaJson(str: string): string {
 export async function GET() {
   try {
     const jsRes = await fetch(
-      "https://www.cwa.gov.tw/Data/js/Observe/County/63.js"
+      "https://www.cwa.gov.tw/Data/js/Observe/County/65.js"
     );
     const jsText = await jsRes.text();
 
