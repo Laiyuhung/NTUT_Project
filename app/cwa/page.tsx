@@ -246,9 +246,17 @@ export default function CwaPage() {
     );
   };
 
-  if (loading) return <div>載入中...</div>;
-  if (error) return <div>錯誤: {error}</div>;
-  if (!data?.success) return <div>API 回傳失敗</div>;
+
+  // render early return
+  if (loading) {
+    return <div>載入中...</div>;
+  }
+  if (error) {
+    return <div>錯誤: {error}</div>;
+  }
+  if (!data?.success) {
+    return <div>API 回傳失敗</div>;
+  }
 
 
   // 雲型辨識 hooks
