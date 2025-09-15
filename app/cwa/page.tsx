@@ -4,11 +4,6 @@ type StationOption = {
   station_name: string;
   StationID: string;
 };
-  // 站名選單
-  const [stationOptions, setStationOptions] = useState<StationOption[]>([]);
-  const [selectedStation, setSelectedStation] = useState<string>("");
-  const [stationLoading, setStationLoading] = useState(true);
-  const [stationError, setStationError] = useState<string | null>(null);
 type CrawlerRow = {
   time: string;
   temp: string;
@@ -50,7 +45,14 @@ type CwaWeatherResponse = {
   error?: string;
 };
 
+
 export default function CwaPage() {
+  // 站名選單 hooks
+  const [stationOptions, setStationOptions] = useState<StationOption[]>([]);
+  const [selectedStation, setSelectedStation] = useState<string>("");
+  const [stationLoading, setStationLoading] = useState(true);
+  const [stationError, setStationError] = useState<string | null>(null);
+
   const [data, setData] = useState<CwaWeatherResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
