@@ -63,67 +63,75 @@ export async function GET() {
       // 解析 HTML 並結構化資料
       // 若 raw 只有 <tr>，需包成 <table> 才能正確解析
       const $ = cheerio.load(`<table>${html}</table>`);
-    const rows = $('tr[data-cstname]');
-    const data: Array<{
-      date: string;
-      time: string;
-      temp: string;
-      weather: string;
-      wind: string;
-      windSpeed: string;
-      windSpeedAlt: string;
-      visibility: string;
-      humidity: string;
-      pressure: string;
-      rain: string;
-      sunlight: string;
-    }> = [];
-    rows.each((_, row) => {
-      const $row = $(row);
-      // 解析日期與時間
-      let date = '';
-      let time = '';
-      const th = $row.find('th[scope="row"]');
-      if (th.length) {
-        const thHtml = th.html() || '';
-        const parts = thHtml.split('<br');
-        date = cheerio.load(parts[0]).text().trim();
-        time = cheerio.load(parts[1] ? '<br' + parts[1] : '').text().trim();
-        if (!time) {
-          const txt = th.text().replace(/\s+/g, ' ').trim();
-          const match = txt.match(/^(\d{2}\/\d{2})\s*(\d{2}:\d{2})?$/);
-          if (match) {
-            date = match[1];
-            time = match[2] || '';
+      const data: Array<{
+        date: string;
+        time: string;
+        temp: string;
+        weather: string;
+        wind: string;
+        windSpeed: string;
+        windSpeedAlt: string;
+        visibility: string;
+        humidity: string;
+        pressure: string;
+        rain: string;
+        sunlight: string;
+      }> = [];
+      // 針對所有 <tr> 逐筆解析
+      $('tr').each((_, row) => {
+        const $row = $(row);
+        // 解析日期與時間
+        let date = '';
+        let time = '';
+        const th = $row.find('th[scope="row"]');
+        if (th.length) {
+          const thHtml = th.html() || '';
+          const parts = thHtml.split('<br');
+          date = cheerio.load(parts[0]).text().trim();
+          time = cheerio.load(parts[1] ? '<br' + parts[1] : '').text().trim();
+          if (!time) {
+            const txt = th.text().replace(/\s+/g, ' ').trim();
+            const match = txt.match(/^(\d{2}\/\d{2})\s*(\d{2}:\d{2})?$/);
+            if (match) {
+              date = match[1];
+              time = match[2] || '';
+            }
           }
         }
-      }
-      // 其他欄位
-      const temp = $row.find('td[headers="temp"] .tem-C').text().trim();
-      const weather = $row.find('td[headers="weather"] img').attr('title') || '';
-      const wind = $row.find('td[headers="w-1"] .wind').text().trim();
-      const windSpeed = $row.find('td[headers="w-2"] .wind_2').text().trim();
-      const windSpeedAlt = $row.find('td[headers="w-3"] .wind_2').text().trim();
-      const visibility = $row.find('td[headers="visible-1"]').text().trim();
-      const humidity = $row.find('td[headers="hum"]').text().trim();
-      const pressure = $row.find('td[headers="pre"]').text().trim();
-      const rain = $row.find('td[headers="rain"]').text().trim();
-      const sunlight = $row.find('td[headers="sunlight"]').text().trim();
-      data.push({
-        date,
-        time,
-        temp,
-        weather,
-        wind,
-        windSpeed,
-        windSpeedAlt,
-        visibility,
-        humidity,
-        pressure,
-        rain,
-        sunlight,
+        // 其他欄位
+        const temp = $row.find('td[headers="temp"] .tem-C').text().trim();
+        // weather 欄位正確抓 title
+        let weather = '';
+        const weatherImg = $row.find('td[headers="weather"] img');
+        if (weatherImg.length) {
+          weather = weatherImg.attr('title') || weatherImg.attr('alt') || '';
+        }
+        const wind = $row.find('td[headers="w-1"] .wind').text().trim();
+        const windSpeed = $row.find('td[headers="w-2"] .wind_2').text().trim();
+        const windSpeedAlt = $row.find('td[headers="w-3"] .wind_2').text().trim();
+        const visibility = $row.find('td[headers="visible-1"]').text().trim();
+        const humidity = $row.find('td[headers="hum"]').text().trim();
+        const pressure = $row.find('td[headers="pre"]').text().trim();
+        const rain = $row.find('td[headers="rain"]').text().trim();
+        const sunlight = $row.find('td[headers="sunlight"]').text().trim();
+        // 只要有時間欄位才推入
+        if (date || time) {
+          data.push({
+            date,
+            time,
+            temp,
+            weather,
+            wind,
+            windSpeed,
+            windSpeedAlt,
+            visibility,
+            humidity,
+            pressure,
+            rain,
+            sunlight,
+          });
+        }
       });
-    });
     return NextResponse.json({ success: true, data, raw: html });
   } catch (error) {
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
