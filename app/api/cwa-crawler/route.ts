@@ -1,3 +1,36 @@
+// 直接解析傳入的 HTML 字串，回傳結構化天氣資料
+export async function POST(req: Request) {
+  try {
+    const { raw } = await req.json();
+    if (!raw) {
+      return NextResponse.json({ success: false, error: "No raw HTML provided" });
+    }
+    // 包一層 table/tbody 方便 cheerio 處理
+    const $ = cheerio.load(`<table><tbody>${raw}</tbody></table>`);
+    const data: any[] = [];
+    $("tr").each((_, tr) => {
+      const tds = $(tr).find("td");
+      const th = $(tr).find("th").first();
+      if (tds.length < 10) return; // 欄位不足不處理
+      data.push({
+        time: th.text().replace(/\s+/g, " ").trim(),
+        temp: $(tds[0]).find(".tem-C").text().trim(),
+        weather: $(tds[1]).find("img").attr("alt") || "",
+        windDir: $(tds[2]).find(".wind").text().trim(),
+        windSpeed: $(tds[3]).find(".wind_2").text().trim(),
+        windGust: $(tds[4]).find(".wind_2").text().trim(),
+        visibility: $(tds[5]).text().trim(),
+        humidity: $(tds[6]).text().trim(),
+        pressure: $(tds[7]).text().trim(),
+        rain: $(tds[8]).text().trim(),
+        sunlight: $(tds[9]).text().trim(),
+      });
+    });
+    return NextResponse.json({ success: true, data });
+  } catch (e) {
+    return NextResponse.json({ success: false, error: (e as Error).message });
+  }
+}
 import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 import { Element } from 'domhandler';
