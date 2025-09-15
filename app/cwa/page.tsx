@@ -5,6 +5,7 @@ type StationOption = {
   StationID: string;
 };
 type CrawlerRow = {
+  date: string;
   time: string;
   temp: string;
   weather: string;
@@ -130,9 +131,12 @@ export default function CwaPage() {
                 onChange={e => setSelectedStation(e.target.value)}
                 style={{ marginLeft: 8, padding: 4 }}
               >
+                <option value="" disabled>
+                  請選擇
+                </option>
                 {stationOptions.map(opt => (
                   <option key={opt.station_name} value={opt.station_name}>
-                    {opt.station_name}
+                  {opt.station_name}
                   </option>
                 ))}
               </select>
@@ -141,15 +145,16 @@ export default function CwaPage() {
         )}
         {/* 資料表格 */}
         {crawlerLoading ? (
-          <div>中央氣象局 24hr 觀測（爬蟲）：載入中...</div>
+          <div>單一測站數據 載入中...</div>
         ) : crawlerError ? (
-          <div>中央氣象局 24hr 觀測（爬蟲）錯誤: {crawlerError}</div>
+          <div>單一測站數據 錯誤: {crawlerError}</div>
         ) : !crawler?.success || !crawler.data ? (
-          <div>中央氣象局 24hr 觀測（爬蟲）API 回傳失敗</div>
+          <div>單一測站數據 API 回傳失敗</div>
         ) : (
           <table style={{ borderCollapse: "collapse", minWidth: 900, border: "1px solid #ccc" }}>
             <thead>
               <tr style={{ background: "#f0f0f0" }}>
+                <th style={{ border: "1px solid #ccc", padding: 8 }}>日期</th>
                 <th style={{ border: "1px solid #ccc", padding: 8 }}>時間</th>
                 <th style={{ border: "1px solid #ccc", padding: 8 }}>溫度(°C)</th>
                 <th style={{ border: "1px solid #ccc", padding: 8 }}>天氣</th>
@@ -165,6 +170,7 @@ export default function CwaPage() {
             <tbody>
               {crawler.data.map((row, idx) => (
                 <tr key={row.time + idx}>
+                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.date}</td>
                   <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.time}</td>
                   <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.temp}</td>
                   <td style={{ border: "1px solid #ccc", padding: 6 }}>{row.weather}</td>
