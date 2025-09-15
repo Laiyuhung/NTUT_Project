@@ -60,7 +60,9 @@ export async function GET() {
       credentials: 'omit', // server 端 fetch 不支援 include
     });
     const html = await res.text();
-    const $ = cheerio.load(html);
+      // 解析 HTML 並結構化資料
+      // 若 raw 只有 <tr>，需包成 <table> 才能正確解析
+      const $ = cheerio.load(`<table>${html}</table>`);
     const rows = $('tr[data-cstname]');
     const data: Array<{
       date: string;
