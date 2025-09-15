@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
+import { createClient } from '@supabase/supabase-js';
 
 
 
-function getCwaUrl() {
-  const base = 'https://www.cwa.gov.tw/V8/C/W/Observe/MOD/24hr/46692.html';
+function getCwaUrl(stationId: string) {
+  const base = `https://www.cwa.gov.tw/V8/C/W/Observe/MOD/24hr/${stationId}.html`;
   const t = Date.now();
   return `${base}?T=${t}`;
 }
@@ -39,13 +40,40 @@ async function fetchWithRetry(url: string, options: RequestInit, retries = 3): P
   throw new Error('Request blocked or failed after retries');
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    // 1. 連接 Supabase
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json({ success: false, error: 'Supabase env not set' }, { status: 500 });
+    }
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // 2. 取得 query string
+    const { searchParams } = new URL(req.url);
+    const stationId = searchParams.get('StationID');
+
+    // 3. 若未給 StationID，回傳所有可用站點
+    if (!stationId) {
+      const { data, error } = await supabase
+        .from('station_code_map')
+        .select('station_name, StationID')
+        .neq('StationID', '')
+        .order('station_name', { ascending: true });
+      if (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ success: true, stations: data });
+    }
+
+    // 4. 有 StationID，爬取該站點
     const userAgent = getRandomUserAgent();
-    const res = await fetchWithRetry(getCwaUrl(), {
+    const url = getCwaUrl(stationId);
+    const res = await fetchWithRetry(url, {
       headers: {
         'User-Agent': userAgent,
-        'Referer': 'https://www.cwa.gov.tw/V8/C/W/Observe/MOD/24hr/46692.html',
+        'Referer': url,
         'Origin': 'https://www.cwa.gov.tw',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'zh-TW,zh;q=0.9',
@@ -53,85 +81,77 @@ export async function GET() {
         'Connection': 'keep-alive',
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache',
-        // 可視情況加上 Cookie
-        //'Cookie': 'your_cookie_here',
       },
       cache: 'no-store',
-      credentials: 'omit', // server 端 fetch 不支援 include
+      credentials: 'omit',
     });
     const html = await res.text();
-      // 解析 HTML 並結構化資料
-      // 若 raw 只有 <tr>，需包成 <table> 才能正確解析
-      const $ = cheerio.load(`<table>${html}</table>`);
-      const data: Array<{
-        date: string;
-        time: string;
-        temp: string;
-        weather: string;
-        wind: string;
-        windSpeed: string;
-        windSpeedAlt: string;
-        visibility: string;
-        humidity: string;
-        pressure: string;
-        rain: string;
-        sunlight: string;
-      }> = [];
-      // 針對所有 <tr> 逐筆解析
-      $('tr').each((_, row) => {
-        const $row = $(row);
-        // 解析日期與時間
-        let date = '';
-        let time = '';
-        const th = $row.find('th[scope="row"]');
-        if (th.length) {
-          const thHtml = th.html() || '';
-          const parts = thHtml.split('<br');
-          date = cheerio.load(parts[0]).text().trim();
-          time = cheerio.load(parts[1] ? '<br' + parts[1] : '').text().trim();
-          if (!time) {
-            const txt = th.text().replace(/\s+/g, ' ').trim();
-            const match = txt.match(/^(\d{2}\/\d{2})\s*(\d{2}:\d{2})?$/);
-            if (match) {
-              date = match[1];
-              time = match[2] || '';
-            }
+    // 解析 HTML 並結構化資料
+    const $ = cheerio.load(`<table>${html}</table>`);
+    const data: Array<{
+      date: string;
+      time: string;
+      temp: string;
+      weather: string;
+      wind: string;
+      windSpeed: string;
+      windSpeedAlt: string;
+      visibility: string;
+      humidity: string;
+      pressure: string;
+      rain: string;
+      sunlight: string;
+    }> = [];
+    $('tr').each((_, row) => {
+      const $row = $(row);
+      let date = '';
+      let time = '';
+      const th = $row.find('th[scope="row"]');
+      if (th.length) {
+        const thHtml = th.html() || '';
+        const parts = thHtml.split('<br');
+        date = cheerio.load(parts[0]).text().trim();
+        time = cheerio.load(parts[1] ? '<br' + parts[1] : '').text().trim();
+        if (!time) {
+          const txt = th.text().replace(/\s+/g, ' ').trim();
+          const match = txt.match(/^(\d{2}\/\d{2})\s*(\d{2}:\d{2})?$/);
+          if (match) {
+            date = match[1];
+            time = match[2] || '';
           }
         }
-        // 其他欄位
-        const temp = $row.find('td[headers="temp"] .tem-C').text().trim();
-        // weather 欄位正確抓 title
-        let weather = '';
-        const weatherImg = $row.find('td[headers="weather"] img');
-        if (weatherImg.length) {
-          weather = weatherImg.attr('title') || weatherImg.attr('alt') || '';
-        }
-        const wind = $row.find('td[headers="w-1"] .wind').text().trim();
-        const windSpeed = $row.find('td[headers="w-2"] .wind_2').text().trim();
-        const windSpeedAlt = $row.find('td[headers="w-3"] .wind_2').text().trim();
-        const visibility = $row.find('td[headers="visible-1"]').text().trim();
-        const humidity = $row.find('td[headers="hum"]').text().trim();
-        const pressure = $row.find('td[headers="pre"]').text().trim();
-        const rain = $row.find('td[headers="rain"]').text().trim();
-        const sunlight = $row.find('td[headers="sunlight"]').text().trim();
-        // 只要有時間欄位才推入
-        if (date || time) {
-          data.push({
-            date,
-            time,
-            temp,
-            weather,
-            wind,
-            windSpeed,
-            windSpeedAlt,
-            visibility,
-            humidity,
-            pressure,
-            rain,
-            sunlight,
-          });
-        }
-      });
+      }
+      const temp = $row.find('td[headers="temp"] .tem-C').text().trim();
+      let weather = '';
+      const weatherImg = $row.find('td[headers="weather"] img');
+      if (weatherImg.length) {
+        weather = weatherImg.attr('title') || weatherImg.attr('alt') || '';
+      }
+      const wind = $row.find('td[headers="w-1"] .wind').text().trim();
+      const windSpeed = $row.find('td[headers="w-2"] .wind_2').text().trim();
+      const windSpeedAlt = $row.find('td[headers="w-3"] .wind_2').text().trim();
+      const visibility = $row.find('td[headers="visible-1"]').text().trim();
+      const humidity = $row.find('td[headers="hum"]').text().trim();
+      const pressure = $row.find('td[headers="pre"]').text().trim();
+      const rain = $row.find('td[headers="rain"]').text().trim();
+      const sunlight = $row.find('td[headers="sunlight"]').text().trim();
+      if (date || time) {
+        data.push({
+          date,
+          time,
+          temp,
+          weather,
+          wind,
+          windSpeed,
+          windSpeedAlt,
+          visibility,
+          humidity,
+          pressure,
+          rain,
+          sunlight,
+        });
+      }
+    });
     return NextResponse.json({ success: true, data, raw: html });
   } catch (error) {
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
