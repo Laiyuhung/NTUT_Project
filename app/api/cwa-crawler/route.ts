@@ -185,10 +185,10 @@ export async function GET(req: Request) {
           (allRows[0].time === '01:00' && allRows[1].time === '00:00');
       }
       if (!crossDay && allRows.length > 1) {
-        // 印出用來相減的兩筆
-        console.log('[整點站] 累計項用', allRows[1].date, allRows[1].time, allRows[1].rain, allRows[1].sunlight, '減', allRows[0].date, allRows[0].time, allRows[0].rain, allRows[0].sunlight);
-        rain = (parseFloat(allRows[1].rain) - parseFloat(allRows[0].rain)).toFixed(1);
-        sunlight = (parseFloat(allRows[1].sunlight) - parseFloat(allRows[0].sunlight)).toFixed(1);
+        // 印出用來相減的兩筆（最新-舊）
+        console.log('[整點站] 累計項用', allRows[0].date, allRows[0].time, allRows[0].rain, allRows[0].sunlight, '減', allRows[1].date, allRows[1].time, allRows[1].rain, allRows[1].sunlight);
+        rain = (parseFloat(allRows[0].rain) - parseFloat(allRows[1].rain)).toFixed(1);
+        sunlight = (parseFloat(allRows[0].sunlight) - parseFloat(allRows[1].sunlight)).toFixed(1);
       }
       // 若跨日，rain/sunlight 保持為最新一筆
     } else {
@@ -199,10 +199,10 @@ export async function GET(req: Request) {
           (allRows[0].time === '00:10' && allRows[6].time === '00:00');
       }
       if (!crossDay && allRows.length > 6) {
-        // 印出用來相減的兩筆
-        console.log('[十分鐘站] 累計項用', allRows[6].date, allRows[6].time, allRows[6].rain, allRows[6].sunlight, '減', allRows[0].date, allRows[0].time, allRows[0].rain, allRows[0].sunlight);
-        rain = (parseFloat(allRows[6].rain) - parseFloat(allRows[0].rain)).toFixed(1);
-        sunlight = (parseFloat(allRows[6].sunlight) - parseFloat(allRows[0].sunlight)).toFixed(1);
+        // 印出用來相減的兩筆（最新-舊）
+        console.log('[十分鐘站] 累計項用', allRows[0].date, allRows[0].time, allRows[0].rain, allRows[0].sunlight, '減', allRows[6].date, allRows[6].time, allRows[6].rain, allRows[6].sunlight);
+        rain = (parseFloat(allRows[0].rain) - parseFloat(allRows[6].rain)).toFixed(1);
+        sunlight = (parseFloat(allRows[0].sunlight) - parseFloat(allRows[6].sunlight)).toFixed(1);
       } else if (crossDay && allRows.length > 6) {
         const zeroRow = allRows.find(r => r.time === '00:00');
         if (zeroRow) {
