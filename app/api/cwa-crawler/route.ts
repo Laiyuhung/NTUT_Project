@@ -2,12 +2,16 @@ import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 import { Element } from 'domhandler';
 
-const CWA_URL = 'https://www.cwa.gov.tw/V8/C/W/Observe/MOD/24hr/46692.html';
-// https://www.cwa.gov.tw/V8/C/W/Observe/MOD/24hr/46692.html?T=66015638285
+
+function getCwaUrl() {
+  const base = 'https://www.cwa.gov.tw/V8/C/W/Observe/MOD/24hr/46692.html';
+  const t = Date.now();
+  return `${base}?T=${t}`;
+}
 
 export async function GET() {
   try {
-    const res = await fetch(CWA_URL, {
+  const res = await fetch(getCwaUrl(), {
       headers: {
         'User-Agent': 'Mozilla/5.0',
       },
