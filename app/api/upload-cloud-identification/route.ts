@@ -4,11 +4,36 @@ import path from 'path';
 import { spawn } from 'child_process';
 
 export const runtime = 'nodejs';
+// 設定 API 請求最大上限 50mb
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '100mb',
+    },
+  },
+};
 
 export async function POST(req: NextRequest) {
+
+  // 先記錄請求大小
+  const contentLength = req.headers.get('content-length');
+  console.log('[upload-cloud-identification] content-length:', contentLength);
+
   const formData = await req.formData();
   const modelFile = formData.get('model');
   const photos = formData.getAll('photos');
+
+  // log 檔案資訊
+  if (modelFile instanceof File) {
+    console.log('[upload-cloud-identification] modelFile:', modelFile.name, modelFile.size);
+  }
+  if (Array.isArray(photos)) {
+    photos.forEach((f, i) => {
+      if (f instanceof File) {
+        console.log(`[upload-cloud-identification] photo[${i}]:`, f.name, f.size);
+      }
+    });
+  }
 
   // 檢查型別
   if (!modelFile || !(modelFile instanceof File) || photos.length === 0 || !photos.every(f => f instanceof File)) {
