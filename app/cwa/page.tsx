@@ -128,58 +128,50 @@ export default function CwaPage() {
     <div style={{ padding: 24 }}>
       {renderCrawler()}
       <h1>中央氣象署觀測站資料</h1>
-      {Array.isArray(data.stations) && data.stations.length > 0 ? (
-        <div style={{ overflowX: "auto", marginBottom: 32 }}>
-          <table
-            style={{
-              borderCollapse: "collapse",
-              minWidth: 900,
-              border: "1px solid #ccc",
-            }}
-          >
-            <thead>
-              <tr style={{ background: "#f0f0f0" }}>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>日期</th>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>時間</th>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>站名</th>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>天氣</th>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>溫度(°C)</th>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>濕度(%)</th>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>雨量(mm)</th>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>風速(m/s)</th>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>氣壓(hPa)</th>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>日照(h)</th>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>緯度</th>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>經度</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.stations.map((s) => (
-                <tr key={`${s.name}-${s.time}`}>
-                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.date}</td>
-                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.time}</td>
-                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.name}</td>
-                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.weather}</td>
-                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.temperature}</td>
-                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.humidity}</td>
-                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.rain}</td>
-                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.wind_ms}</td>
-                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.pressure}</td>
-                  <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.sunshine}</td>
-                  <td style={{ border: "1px solid #ccc", padding: 6 }}>
-                    {s.latitude !== undefined && s.latitude !== null ? s.latitude : ""}
-                  </td>
-                  <td style={{ border: "1px solid #ccc", padding: 6 }}>
-                    {s.longitude !== undefined && s.longitude !== null ? s.longitude : ""}
-                  </td>
+        {Array.isArray(data.stations) && data.stations.length > 0 ? (
+          <div style={{ overflowX: "auto", marginBottom: 32 }}>
+            <table border={1}>
+              <thead>
+                <tr style={{ background: "#f0f0f0" }}>
+                  <th style={{ border: "1px solid #ccc", padding: 8 }}>站名</th>
+                  <th style={{ border: "1px solid #ccc", padding: 8 }}>時間</th>
+                  <th style={{ border: "1px solid #ccc", padding: 8 }}>天氣</th>
+                  <th style={{ border: "1px solid #ccc", padding: 8 }}>溫度(°C)</th>
+                  <th style={{ border: "1px solid #ccc", padding: 8 }}>濕度(%)</th>
+                  <th style={{ border: "1px solid #ccc", padding: 8 }}>雨量(mm)</th>
+                  <th style={{ border: "1px solid #ccc", padding: 8 }}>風速(m/s)</th>
+                  <th style={{ border: "1px solid #ccc", padding: 8 }}>氣壓(hPa)</th>
+                  <th style={{ border: "1px solid #ccc", padding: 8 }}>日照(h)</th>
+                  <th style={{ border: "1px solid #ccc", padding: 8 }}>緯度</th>
+                  <th style={{ border: "1px solid #ccc", padding: 8 }}>經度</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div>無觀測站資料</div>
-      )}
+              </thead>
+              <tbody>
+                {data.stations.map((s) => (
+                  <tr key={`${s.name}-${s.time}`}>
+                    <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.name}</td>
+                    <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.date} {s.time}</td>
+                    <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.weather}</td>
+                    <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.temperature}</td>
+                    <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.humidity}</td>
+                    <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.rain}</td>
+                    <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.wind_ms}</td>
+                    <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.pressure}</td>
+                    <td style={{ border: "1px solid #ccc", padding: 6 }}>{s.sunshine}</td>
+                    <td style={{ border: "1px solid #ccc", padding: 6 }}>
+                      {s.latitude !== undefined && s.latitude !== null ? s.latitude : ""}
+                    </td>
+                    <td style={{ border: "1px solid #ccc", padding: 6 }}>
+                      {s.longitude !== undefined && s.longitude !== null ? s.longitude : ""}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div>無觀測站資料</div>
+        )}
 
       {data.raw && (
         <>
