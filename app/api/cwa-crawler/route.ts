@@ -179,35 +179,34 @@ export async function GET(req: Request) {
     let sunlight = latest.sunlight;
     if (isHourly) {
       // 整點站
-      // 跨日判斷：第1筆和第2筆日期不同，或第1筆時間為01:00且第2筆為00:00
       let crossDay = false;
       if (allRows.length > 1) {
         crossDay = allRows[0].date !== allRows[1].date ||
           (allRows[0].time === '01:00' && allRows[1].time === '00:00');
       }
       if (!crossDay && allRows.length > 1) {
-        // 累計項 = 第2列 - 第1列
+        // 印出用來相減的兩筆
+        console.log('[整點站] 累計項用', allRows[1].date, allRows[1].time, allRows[1].rain, allRows[1].sunlight, '減', allRows[0].date, allRows[0].time, allRows[0].rain, allRows[0].sunlight);
         rain = (parseFloat(allRows[1].rain) - parseFloat(allRows[0].rain)).toFixed(1);
         sunlight = (parseFloat(allRows[1].sunlight) - parseFloat(allRows[0].sunlight)).toFixed(1);
       }
       // 若跨日，rain/sunlight 保持為最新一筆
     } else {
       // 十分鐘站
-      // 跨日判斷：第1筆和第7筆日期不同，或第1筆時間為00:10且第7筆為00:00
       let crossDay = false;
       if (allRows.length > 6) {
         crossDay = allRows[0].date !== allRows[6].date ||
           (allRows[0].time === '00:10' && allRows[6].time === '00:00');
       }
       if (!crossDay && allRows.length > 6) {
-        // 累計項 = 第7列 - 第1列
+        // 印出用來相減的兩筆
+        console.log('[十分鐘站] 累計項用', allRows[6].date, allRows[6].time, allRows[6].rain, allRows[6].sunlight, '減', allRows[0].date, allRows[0].time, allRows[0].rain, allRows[0].sunlight);
         rain = (parseFloat(allRows[6].rain) - parseFloat(allRows[0].rain)).toFixed(1);
         sunlight = (parseFloat(allRows[6].sunlight) - parseFloat(allRows[0].sunlight)).toFixed(1);
       } else if (crossDay && allRows.length > 6) {
-        // 累計項 = 第1列 + (第7列00:00 - 第1列00:00)
-        // 找到00:00那筆
         const zeroRow = allRows.find(r => r.time === '00:00');
         if (zeroRow) {
+          console.log('[十分鐘站-跨日] 累計項用', allRows[0].date, allRows[0].time, allRows[0].rain, allRows[0].sunlight, '+ (', zeroRow.date, zeroRow.time, zeroRow.rain, zeroRow.sunlight, '-', allRows[6].date, allRows[6].time, allRows[6].rain, allRows[6].sunlight, ')');
           rain = (parseFloat(allRows[0].rain) + (parseFloat(zeroRow.rain) - parseFloat(allRows[6].rain))).toFixed(1);
           sunlight = (parseFloat(allRows[0].sunlight) + (parseFloat(zeroRow.sunlight) - parseFloat(allRows[6].sunlight))).toFixed(1);
         }
