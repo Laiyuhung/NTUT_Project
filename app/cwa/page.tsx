@@ -165,7 +165,7 @@ export default function CwaPage() {
   const renderCrawler = () => {
     return (
       <div style={{ overflowX: "auto", marginBottom: 32 }}>
-        <h2 style={{ margin: "16px 0 8px 0" }}>中央氣象局 24hr 單一測站數據</h2>
+        <h2 style={{ margin: "16px 0 8px 0" }}>近 1 小時 天氣概況</h2>
         {/* 站名下拉選單 */}
         {stationLoading ? (
           <div>載入站名選單中...</div>
