@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 import { Element } from 'domhandler';
 
-const CWA_URL = 'https://www.cwa.gov.tw/V8/C/W/Observe/MOD/24hr/46692.html?T=37110391889';
+const CWA_URL = 'https://www.cwa.gov.tw/V8/C/W/Observe/MOD/24hr/46692.html';
+// https://www.cwa.gov.tw/V8/C/W/Observe/MOD/24hr/46692.html?T=66015638285
 
 export async function GET() {
   try {
