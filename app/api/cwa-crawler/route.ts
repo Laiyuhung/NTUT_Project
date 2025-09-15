@@ -62,7 +62,8 @@ export async function GET() {
     const html = await res.text();
     const $ = cheerio.load(html);
     const rows = $('tr[data-cstname]');
-    const data = rows.map((_: number, row: Element) => {
+    const data: any[] = [];
+    rows.each((_, row) => {
       const $row = $(row);
       // 解析日期與時間
       let date = '';
@@ -70,12 +71,10 @@ export async function GET() {
       const th = $row.find('th[scope="row"]');
       if (th.length) {
         const thHtml = th.html() || '';
-        // 例如: 09/15<br class="visible-md"> 09:20
         const parts = thHtml.split('<br');
         date = cheerio.load(parts[0]).text().trim();
         time = cheerio.load(parts[1] ? '<br' + parts[1] : '').text().trim();
         if (!time) {
-          // 若無 <br>，直接分割
           const txt = th.text().replace(/\s+/g, ' ').trim();
           const match = txt.match(/^(\d{2}\/\d{2})\s*(\d{2}:\d{2})?$/);
           if (match) {
@@ -95,7 +94,7 @@ export async function GET() {
       const pressure = $row.find('td[headers="pre"]').text().trim();
       const rain = $row.find('td[headers="rain"]').text().trim();
       const sunlight = $row.find('td[headers="sunlight"]').text().trim();
-      return {
+      data.push({
         date,
         time,
         temp,
@@ -108,8 +107,8 @@ export async function GET() {
         pressure,
         rain,
         sunlight,
-      };
-    }).get();
+      });
+    });
     return NextResponse.json({ success: true, data, raw: html });
   } catch (error) {
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
