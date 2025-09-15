@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../../../lib/supabaseClient';
 
 
 // 取得 CWA URL，stationId 必填
@@ -51,9 +51,6 @@ export async function GET(req: Request) {
     }
 
     // 2. 查詢 Supabase 取得 StationID
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
     const { data: stationRows, error: stationError } = await supabase
       .from('station_code_map')
       .select('StationID')
