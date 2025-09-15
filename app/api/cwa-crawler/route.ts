@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
-import { Element } from 'domhandler';
+
 
 
 function getCwaUrl() {
@@ -62,7 +62,20 @@ export async function GET() {
     const html = await res.text();
     const $ = cheerio.load(html);
     const rows = $('tr[data-cstname]');
-    const data: any[] = [];
+    const data: Array<{
+      date: string;
+      time: string;
+      temp: string;
+      weather: string;
+      wind: string;
+      windSpeed: string;
+      windSpeedAlt: string;
+      visibility: string;
+      humidity: string;
+      pressure: string;
+      rain: string;
+      sunlight: string;
+    }> = [];
     rows.each((_, row) => {
       const $row = $(row);
       // 解析日期與時間
