@@ -66,11 +66,26 @@ export default function CwaPage() {
   const [crawlerLoading, setCrawlerLoading] = useState(true);
   const [crawlerError, setCrawlerError] = useState<string | null>(null);
   // 雲型辨識 hooks
-  const [modelFile, setModelFile] = useState<File | null>(null);
+  const [modelList, setModelList] = useState<{ name: string; url?: string }[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>("");
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [cloudResult, setCloudResult] = useState<string | null>(null);
   const [cloudLoading, setCloudLoading] = useState(false);
   const [cloudError, setCloudError] = useState<string | null>(null);
+
+  // 取得模型清單
+  useEffect(() => {
+    fetch("/api/models/list-models-directory")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.files)) {
+          setModelList(json.files);
+        } else if (Array.isArray(json.models)) {
+          setModelList(json.models.map((name: string) => ({ name })));
+        }
+      })
+      .catch(() => setModelList([]));
+  }, []);
 
   useEffect(() => {
     fetch("/api/cwa-weather")
@@ -269,13 +284,13 @@ export default function CwaPage() {
     e.preventDefault();
     setCloudResult(null);
     setCloudError(null);
-    if (!modelFile || photoFiles.length === 0) {
-      setCloudError('請選擇模型檔與至少一張照片');
+    if (!selectedModel || photoFiles.length === 0) {
+      setCloudError('請選擇模型與至少一張照片');
       return;
     }
     setCloudLoading(true);
     const formData = new FormData();
-    formData.append('model', modelFile);
+    formData.append('modelName', selectedModel);
     photoFiles.forEach(f => formData.append('photos', f));
     try {
       const res = await fetch('/api/upload-cloud-identification', {
@@ -301,11 +316,16 @@ export default function CwaPage() {
       {renderCrawler()}
 
       <hr style={{ margin: '32px 0' }} />
-      <h2>雲型辨識（上傳模型與照片）</h2>
+      <h2>雲型辨識（選擇模型與上傳照片）</h2>
       <form onSubmit={handleCloudSubmit} style={{ marginBottom: 24 }}>
         <div style={{ marginBottom: 12 }}>
-          <label>選擇模型檔 (.pt)：
-            <input type="file" accept=".pt" onChange={e => setModelFile(e.target.files?.[0] || null)} />
+          <label>選擇模型：
+            <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} style={{ marginLeft: 8, padding: 4 }}>
+              <option value="" disabled>請選擇模型</option>
+              {modelList.map(m => (
+                <option key={m.name} value={m.name}>{m.name}</option>
+              ))}
+            </select>
           </label>
         </div>
         <div style={{ marginBottom: 12 }}>
