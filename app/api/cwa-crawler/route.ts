@@ -1,3 +1,16 @@
+type CrawlerRow = {
+  time: string;
+  temp: string;
+  weather: string;
+  windDir: string;
+  windSpeed: string;
+  windGust: string;
+  visibility: string;
+  humidity: string;
+  pressure: string;
+  rain: string;
+  sunlight: string;
+};
 // 直接解析傳入的 HTML 字串，回傳結構化天氣資料
 export async function POST(req: Request) {
   try {
@@ -7,11 +20,11 @@ export async function POST(req: Request) {
     }
     // 包一層 table/tbody 方便 cheerio 處理
     const $ = cheerio.load(`<table><tbody>${raw}</tbody></table>`);
-    const data: any[] = [];
+    const data: CrawlerRow[] = [];
     $("tr").each((_, tr) => {
       const tds = $(tr).find("td");
       const th = $(tr).find("th").first();
-      if (tds.length < 10) return; // 欄位不足不處理
+      if (tds.length < 10) return;
       data.push({
         time: th.text().replace(/\s+/g, " ").trim(),
         temp: $(tds[0]).find(".tem-C").text().trim(),
