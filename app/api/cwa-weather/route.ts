@@ -67,7 +67,7 @@ export async function GET() {
   const latlngMap: Record<string, { latitude: number|null, longitude: number|null }> = {};
     if (stationList.length > 0) {
       const { data, error } = await supabase
-        .from('station_code_map')
+        .from('station_code_for_web')
         .select('station_name, latitude, longitude')
         .in('station_name', stationList);
       if (!error && data) {
