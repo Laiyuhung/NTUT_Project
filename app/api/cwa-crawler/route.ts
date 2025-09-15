@@ -11,11 +11,16 @@ function getCwaUrl() {
 
 export async function GET() {
   try {
-  const res = await fetch(getCwaUrl(), {
+    const res = await fetch(getCwaUrl(), {
       headers: {
         'User-Agent': 'Mozilla/5.0',
+        'Referer': 'https://www.cwa.gov.tw/V8/C/W/Observe/MOD/24hr/46692.html',
+        'Origin': 'https://www.cwa.gov.tw',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'zh-TW,zh;q=0.9',
       },
       cache: 'no-store',
+      credentials: 'include',
     });
     const html = await res.text();
     const $ = cheerio.load(html);
