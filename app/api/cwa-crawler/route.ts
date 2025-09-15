@@ -32,7 +32,7 @@ async function fetchWithRetry(url: string, options: RequestInit, retries = 3): P
       const res = await fetch(url, options);
       if (res.status === 200) return res;
       // 若被擋，嘗試下一次
-    } catch (e) {
+    } catch {
       // 忽略錯誤，重試
     }
   }
