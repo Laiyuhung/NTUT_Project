@@ -49,25 +49,23 @@ type CwaWeatherResponse = {
 };
 
 
+
 export default function CwaPage() {
-  // 站名選單 hooks
+  // hooks 必須全部在組件頂部宣告
   const [stationOptions, setStationOptions] = useState<StationOption[]>([]);
   const [selectedStation, setSelectedStation] = useState<string>("");
   const [stationLoading, setStationLoading] = useState(true);
   const [stationError, setStationError] = useState<string | null>(null);
-  // 目前經緯度
   const [currentLat, setCurrentLat] = useState<number | null>(null);
   const [currentLng, setCurrentLng] = useState<number | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
-
   const [data, setData] = useState<CwaWeatherResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // 新增爬蟲 API 狀態
   const [crawler, setCrawler] = useState<CrawlerResponse | null>(null);
   const [crawlerLoading, setCrawlerLoading] = useState(true);
   const [crawlerError, setCrawlerError] = useState<string | null>(null);
+  // 雲型辨識 hooks（已於組件頂部宣告，這裡移除重複宣告）
 
   useEffect(() => {
     fetch("/api/cwa-weather")
@@ -137,7 +135,7 @@ export default function CwaPage() {
       }
       if (nearestStation) setSelectedStation(nearestStation);
     }
-  }, [currentLat, currentLng, stationOptions]);
+  }, [currentLat, currentLng, stationOptions, selectedStation]);
 
   // 監聽站名選擇，重新抓取爬蟲資料
   useEffect(() => {
@@ -281,8 +279,12 @@ export default function CwaPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || '辨識失敗');
       setCloudResult(json.result || '無辨識結果');
-    } catch (err: any) {
-      setCloudError(err.message || '辨識失敗');
+    } catch (err) {
+      if (err instanceof Error) {
+        setCloudError(err.message || '辨識失敗');
+      } else {
+        setCloudError('辨識失敗');
+      }
     } finally {
       setCloudLoading(false);
     }
