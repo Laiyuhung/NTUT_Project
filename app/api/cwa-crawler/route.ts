@@ -64,22 +64,45 @@ export async function GET() {
     const rows = $('tr[data-cstname]');
     const data = rows.map((_: number, row: Element) => {
       const $row = $(row);
-      const time = $row.find('th[scope="row"]').text().replace(/\s+/g, ' ').trim();
+      // 解析日期與時間
+      let date = '';
+      let time = '';
+      const th = $row.find('th[scope="row"]');
+      if (th.length) {
+        const thHtml = th.html() || '';
+        // 例如: 09/15<br class="visible-md"> 09:20
+        const parts = thHtml.split('<br');
+        date = cheerio.load(parts[0]).text().trim();
+        time = cheerio.load(parts[1] ? '<br' + parts[1] : '').text().trim();
+        if (!time) {
+          // 若無 <br>，直接分割
+          const txt = th.text().replace(/\s+/g, ' ').trim();
+          const match = txt.match(/^(\d{2}\/\d{2})\s*(\d{2}:\d{2})?$/);
+          if (match) {
+            date = match[1];
+            time = match[2] || '';
+          }
+        }
+      }
+      // 其他欄位
       const temp = $row.find('td[headers="temp"] .tem-C').text().trim();
       const weather = $row.find('td[headers="weather"] img').attr('title') || '';
       const wind = $row.find('td[headers="w-1"] .wind').text().trim();
       const windSpeed = $row.find('td[headers="w-2"] .wind_2').text().trim();
+      const windSpeedAlt = $row.find('td[headers="w-3"] .wind_2').text().trim();
       const visibility = $row.find('td[headers="visible-1"]').text().trim();
       const humidity = $row.find('td[headers="hum"]').text().trim();
       const pressure = $row.find('td[headers="pre"]').text().trim();
       const rain = $row.find('td[headers="rain"]').text().trim();
       const sunlight = $row.find('td[headers="sunlight"]').text().trim();
       return {
+        date,
         time,
         temp,
         weather,
         wind,
         windSpeed,
+        windSpeedAlt,
         visibility,
         humidity,
         pressure,
