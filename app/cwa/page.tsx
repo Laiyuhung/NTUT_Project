@@ -68,10 +68,27 @@ export default function CwaPage() {
   // 雲型辨識 hooks
   const [modelList, setModelList] = useState<{ name: string; url?: string }[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>("");
-  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
-  const [cloudResult, setCloudResult] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [cloudResult, setCloudResult] = useState<any>(null);
   const [cloudLoading, setCloudLoading] = useState(false);
   const [cloudError, setCloudError] = useState<string | null>(null);
+
+  // 處理照片選擇
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setPhotoFile(file);
+    
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPhotoPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setPhotoPreview(null);
+    }
+  };
 
   // 取得模型清單
   useEffect(() => {
@@ -284,22 +301,22 @@ export default function CwaPage() {
     e.preventDefault();
     setCloudResult(null);
     setCloudError(null);
-    if (!selectedModel || photoFiles.length === 0) {
-      setCloudError('請選擇模型與至少一張照片');
+    if (!selectedModel || !photoFile) {
+      setCloudError('請選擇模型與一張照片');
       return;
     }
     setCloudLoading(true);
     const formData = new FormData();
     formData.append('modelName', selectedModel);
-    photoFiles.forEach(f => formData.append('photos', f));
+    formData.append('photo', photoFile);
     try {
-      const res = await fetch('/api/upload-cloud-identification', {
+      const res = await fetch('/api/analysis/cloud-identification', {
         method: 'POST',
         body: formData,
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || '辨識失敗');
-      setCloudResult(json.result || '無辨識結果');
+      setCloudResult(json);
     } catch (err) {
       if (err instanceof Error) {
         setCloudError(err.message || '辨識失敗');
@@ -311,12 +328,46 @@ export default function CwaPage() {
     }
   };
 
+  // 下載 CSV 結果
+  const downloadCSV = () => {
+    if (!cloudResult?.csv_content) return;
+    
+    const blob = new Blob([cloudResult.csv_content], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `cloud_identification_${cloudResult.timestamp}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div style={{ padding: 24 }}>
       {renderCrawler()}
 
       <hr style={{ margin: '32px 0' }} />
       <h2>雲型辨識（選擇模型與上傳照片）</h2>
+      
+      {/* 雲型說明 */}
+      <details style={{ marginBottom: 20, padding: 12, border: '1px solid #ddd', borderRadius: 4 }}>
+        <summary style={{ fontWeight: 'bold', cursor: 'pointer' }}>📚 雲型分類說明（點擊展開/收起）</summary>
+        <div style={{ marginTop: 12, fontSize: '0.9em' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+            <div><strong>Ci (卷雲):</strong> 高層薄雲，纖維狀</div>
+            <div><strong>Cc (卷積雲):</strong> 高層小塊狀白雲</div>
+            <div><strong>Cs (卷層雲):</strong> 高層薄層狀雲</div>
+            <div><strong>Ac (高積雲):</strong> 中層塊狀雲</div>
+            <div><strong>As (高層雲):</strong> 中層灰色層雲</div>
+            <div><strong>Ns (雨層雲):</strong> 低層厚暗雲，常伴雨</div>
+            <div><strong>Cu (積雲):</strong> 低層塊狀白雲</div>
+            <div><strong>Cb (積雨雲):</strong> 垂直發展雲，雷雨雲</div>
+            <div><strong>Sc (層積雲):</strong> 低層片狀塊雲</div>
+            <div><strong>St (層雲):</strong> 低層灰色均勻層雲</div>
+          </div>
+        </div>
+      </details>
       <form onSubmit={handleCloudSubmit} style={{ marginBottom: 24 }}>
         <div style={{ marginBottom: 12 }}>
           <label>選擇模型：
@@ -329,9 +380,33 @@ export default function CwaPage() {
           </label>
         </div>
         <div style={{ marginBottom: 12 }}>
-          <label>選擇照片（可多選）：
-            <input type="file" accept="image/*" multiple onChange={e => setPhotoFiles(e.target.files ? Array.from(e.target.files) : [])} />
+          <label>選擇照片（單張）：
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={handlePhotoChange}
+              style={{ marginLeft: 8 }}
+            />
           </label>
+          {photoPreview && (
+            <div style={{ marginTop: 12 }}>
+              <p style={{ margin: '4px 0', fontWeight: 'bold' }}>照片預覽：</p>
+              <img 
+                src={photoPreview} 
+                alt="預覽" 
+                style={{ 
+                  maxWidth: '300px', 
+                  maxHeight: '200px', 
+                  border: '1px solid #ddd', 
+                  borderRadius: '4px',
+                  objectFit: 'contain'
+                }} 
+              />
+              <p style={{ margin: '4px 0', fontSize: '0.9em', color: '#666' }}>
+                檔案名稱: {photoFile?.name}
+              </p>
+            </div>
+          )}
         </div>
         <button type="submit" disabled={cloudLoading} style={{ padding: '6px 18px' }}>
           {cloudLoading ? '辨識中...' : '開始辨識'}
@@ -339,9 +414,67 @@ export default function CwaPage() {
       </form>
       {cloudError && <div style={{ color: 'red', marginBottom: 12 }}>錯誤：{cloudError}</div>}
       {cloudResult && (
-        <div>
-          <h4>辨識結果（CSV 內容）</h4>
-          <pre style={{ background: '#f8f8f8', padding: 12, borderRadius: 4, maxWidth: 900, overflowX: 'auto' }}>{cloudResult}</pre>
+        <div style={{ marginTop: 20 }}>
+          <h3>雲型辨識結果</h3>
+          <div style={{ background: '#f8f8f8', padding: 16, borderRadius: 8, marginBottom: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 16px', alignItems: 'center' }}>
+              <strong>照片名稱:</strong>
+              <span>{cloudResult.photo_name}</span>
+              
+              <strong>使用模型:</strong>
+              <span>{cloudResult.model_used}</span>
+              
+              <strong>預測雲型:</strong>
+              <span style={{ fontSize: '1.2em', fontWeight: 'bold', color: '#0066cc' }}>
+                {cloudResult.prediction?.main_cloud}
+              </span>
+              
+              <strong>信心度:</strong>
+              <span>{cloudResult.prediction?.confidence}</span>
+              
+              <strong>影像亮度:</strong>
+              <span>{cloudResult.prediction?.brightness}</span>
+              
+              <strong>偵測數量:</strong>
+              <span>{cloudResult.prediction?.detection_count}</span>
+              
+              <strong>辨識狀態:</strong>
+              <span style={{ color: cloudResult.prediction?.status === '成功' ? 'green' : 'red' }}>
+                {cloudResult.prediction?.status}
+              </span>
+            </div>
+          </div>
+          
+          <h4>CSV 格式結果</h4>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: 8 }}>
+            <button 
+              onClick={downloadCSV}
+              style={{ 
+                padding: '6px 12px', 
+                backgroundColor: '#28a745', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              📥 下載 CSV 結果
+            </button>
+            <small style={{ color: '#666' }}>
+              檔名: cloud_identification_{cloudResult.timestamp}.csv
+            </small>
+          </div>
+          <pre style={{ 
+            background: '#f0f0f0', 
+            padding: 12, 
+            borderRadius: 4, 
+            maxWidth: '100%', 
+            overflowX: 'auto',
+            fontSize: '12px',
+            border: '1px solid #ddd'
+          }}>
+            {cloudResult.csv_content}
+          </pre>
         </div>
       )}
     </div>
