@@ -97,7 +97,7 @@ function adjustByBrightness(topPreds: number[], meanBrightness: number): number[
 // 使用 sharp 計算真實的圖像亮度
 async function calculateImageBrightness(imageBuffer: Buffer): Promise<number> {
   try {
-    const { data, info } = await sharp(imageBuffer)
+    const { data } = await sharp(imageBuffer)
       .greyscale()
       .raw()
       .toBuffer({ resolveWithObject: true })

@@ -70,7 +70,20 @@ export default function CwaPage() {
   const [selectedModel, setSelectedModel] = useState<string>("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [cloudResult, setCloudResult] = useState<any>(null);
+  const [cloudResult, setCloudResult] = useState<{
+    success: boolean;
+    photo_name: string;
+    model_used: string;
+    prediction: {
+      main_cloud: string;
+      confidence: number;
+      brightness: number;
+      detection_count: number;
+      status: string;
+    };
+    csv_content: string;
+    timestamp: string;
+  } | null>(null);
   const [cloudLoading, setCloudLoading] = useState(false);
   const [cloudError, setCloudError] = useState<string | null>(null);
 
